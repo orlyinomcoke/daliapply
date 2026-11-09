@@ -3,8 +3,10 @@
 A Tinder-style job matching app. Seekers upload a resume once; companies post jobs; both sides swipe. Names,
 exact salary and the full resume unlock only on a mutual match.
 
-Stack: Next.js 15 (App Router, TypeScript, Tailwind) · Supabase (Postgres, email OTP, private storage) · Claude
-(resume extraction and one-box search).
+Stack: Next.js 15 (App Router, TypeScript, Tailwind) · Supabase (Postgres, email OTP, private storage).
+
+Resume reading and the one-box search use free built-in rules (`src/lib/parse.ts`). Setting `ANTHROPIC_API_KEY`
+switches both to Claude for better accuracy (paid per use); nothing else changes.
 
 ## Run locally
 
@@ -13,7 +15,7 @@ Needs Node 20+ and Docker Desktop running.
 ```bash
 npm install
 npx supabase start          # local Postgres, auth, storage and an email inbox (first run downloads images)
-cp .env.example .env.local  # then fill in the keys printed by `npx supabase status` and your ANTHROPIC_API_KEY
+cp .env.example .env.local  # then fill in the keys printed by `npx supabase status`
 npm run dev                 # http://localhost:3000
 ```
 
@@ -34,4 +36,4 @@ See `supabase/migrations/0001_init.sql`.
 - Seekers: daily right-swipe cap (25, in `app_settings`), left swipes unlimited, hide a company for 30 days.
 - Cash-out from PHP 200 to GCash or Maya (sent by hand from the admin page for now).
 
-Rule tests: `PGHOST=... PGUSER=... ./supabase/tests/run.sh` (plain Postgres, no Supabase needed).
+Parser tests: `npm test`. Database rule tests: `PGHOST=... PGUSER=... ./supabase/tests/run.sh` (plain Postgres, no Supabase needed).

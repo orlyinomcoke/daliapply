@@ -2,6 +2,10 @@ import "server-only";
 import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { z } from "zod";
+import { extractResumeText, parseSearchText, pdfToText } from "./parse";
+
+/** AI is optional: without ANTHROPIC_API_KEY the free rule-based parsers in ./parse are used. */
+export const aiEnabled = () => Boolean(process.env.ANTHROPIC_API_KEY);
 
 // Created on first use so the app still loads when ANTHROPIC_API_KEY is not set.
 let _client: Anthropic | null = null;
@@ -33,6 +37,7 @@ export type ExtractedProfile = z.infer<typeof ExtractedProfile>;
 
 /** Read a resume (PDF bytes) and extract the structured seeker profile. */
 export async function extractResume(pdf: Buffer): Promise<ExtractedProfile> {
+  if (!aiEnabled()) return extractResumeText(await pdfToText(pdf));
   const message = await client().messages.parse({
     model: MODEL,
     max_tokens: 8000,
@@ -72,6 +77,7 @@ export type SearchFilters = z.infer<typeof SearchFilters>;
 
 /** Turn one sentence ("programmer with 5 years in management and PHP") into filters. */
 export async function parseSearch(query: string): Promise<SearchFilters> {
+  if (!aiEnabled()) return parseSearchText(query);
   const message = await client().messages.parse({
     model: MODEL,
     max_tokens: 1000,
