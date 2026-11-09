@@ -3,7 +3,12 @@ import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { z } from "zod";
 
-const client = new Anthropic(); // reads ANTHROPIC_API_KEY
+// Created on first use so the app still loads when ANTHROPIC_API_KEY is not set.
+let _client: Anthropic | null = null;
+function client() {
+  if (!process.env.ANTHROPIC_API_KEY) throw new Error("AI is not set up yet: add ANTHROPIC_API_KEY to .env.local");
+  return (_client ??= new Anthropic());
+}
 const MODEL = process.env.ANTHROPIC_MODEL ?? "claude-sonnet-5-5";
 
 export const ExtractedProfile = z.object({
@@ -28,7 +33,7 @@ export type ExtractedProfile = z.infer<typeof ExtractedProfile>;
 
 /** Read a resume (PDF bytes) and extract the structured seeker profile. */
 export async function extractResume(pdf: Buffer): Promise<ExtractedProfile> {
-  const message = await client.messages.parse({
+  const message = await client().messages.parse({
     model: MODEL,
     max_tokens: 8000,
     messages: [
@@ -67,7 +72,7 @@ export type SearchFilters = z.infer<typeof SearchFilters>;
 
 /** Turn one sentence ("programmer with 5 years in management and PHP") into filters. */
 export async function parseSearch(query: string): Promise<SearchFilters> {
-  const message = await client.messages.parse({
+  const message = await client().messages.parse({
     model: MODEL,
     max_tokens: 1000,
     messages: [
