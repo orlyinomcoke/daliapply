@@ -222,6 +222,12 @@ function findLangs(t) {
   t = t.toLowerCase();
   return [...new Set(LANGS.filter((l) => new RegExp(`\\b${l}\\b`).test(t)).map((l) => (l === "tagalog" ? "filipino" : l)))];
 }
+// A resume written in English shows the person reads and writes English, even if it never says so.
+function resumeLangs(t) {
+  const l = findLangs(t);
+  if (!l.includes("english") && (t.match(/\b(the|and|with|for|of)\b/gi) || []).length >= 10) l.unshift("english");
+  return l;
+}
 function findCountry(t) {
   t = t.toLowerCase(); let best = null;
   for (const [n, c] of Object.entries(COUNTRIES)) { const at = t.search(new RegExp(`\\b${esc(n)}\\b`)); if (at >= 0 && (!best || at < best.at)) best = { c, at }; }
@@ -269,7 +275,7 @@ function readResume(raw, now = new Date()) {
     .sort((a, b) => b.years - a.years);
   let first = "", last = "";
   for (const line of lines.slice(0, 8)) {
-    const clean = line.replace(/[^A-Za-zÀ-ÿñÑ .'-]/g, "").trim(); const w = clean.split(/\s+/).filter(Boolean);
+    const clean = line.replace(/\s*[·|•-]?\s*page\s*\d+.*$/i, "").replace(/[^A-Za-zÀ-ÿñÑ .'-]/g, "").trim(); const w = clean.split(/\s+/).filter(Boolean);
     if (w.length >= 2 && w.length <= 5 && !/resume|curriculum|vitae|profile|contact/i.test(clean) && w.every((x) => /^[A-ZÀ-ÿÑ]/.test(x) || x.length <= 3)) {
       const p = w.map((x) => x[0] + x.slice(1).toLowerCase()); first = p.slice(0, -1).join(" "); last = p[p.length - 1]; break;
     }
@@ -282,7 +288,7 @@ function readResume(raw, now = new Date()) {
     first, last, headline, totalYears: half(mergedYears(bs)), skills,
     recentRoles: [...bs].sort((a, b) => b.end - a.end).slice(0, 4).map((b) => ({ title: b.title, years: half(b.end - b.start) })),
     salaryMin: sal ? v(sal[1], sal[2]) : "", salaryMax: sal ? (v(sal[3], sal[4]) || v(sal[1], sal[2])) : "",
-    country: findCountry(text) || "PH", languages: findLangs(text), resumeText: stripContacts(text).trim(),
+    country: findCountry(text) || "PH", languages: resumeLangs(text), resumeText: stripContacts(text).trim(),
   };
 }
 function parseSearch(query) {
@@ -687,6 +693,17 @@ function signupBox(app, side) {
 }
 
 /* ---------- Seeker ---------- */
+// Explain an empty feed: count paid jobs that each rule alone rules out.
+function emptyFeedHint(s) {
+  const open = Object.values(D.jobs).filter((j) => j.paid);
+  const langs = open.filter((j) => !(j.languages || []).every((l) => (s.languages || []).includes(l)));
+  const pay = open.filter((j) => !overlap(s.salaryMin, s.salaryMax, j.salaryMin, j.salaryMax));
+  const tips = [];
+  if (langs.length) { const need = [...new Set(langs.flatMap((j) => j.languages || []).filter((l) => !(s.languages || []).includes(l)))]; tips.push(`${langs.length} job${langs.length === 1 ? " needs" : "s need"} ${h(need.join(", "))}, which isn't in your languages.`); }
+  if (pay.length) tips.push(`${pay.length} job${pay.length === 1 ? "'s" : "s'"} salary range doesn't overlap yours.`);
+  if (!tips.length) return `<h3>You've seen every job that fits you.</h3><p class="muted" style="margin-top:6px">New jobs appear here as companies post them.</p>`;
+  return `<h3>No jobs fit your profile yet.</h3><p class="muted" style="margin-top:6px">${tips.join(" ")} Update it under <b>My profile</b>.</p>`;
+}
 function viewSeeker(app) {
   const s = me();
   if (!s || S.role !== "seeker") return signupBox(app, "seeker");
@@ -704,7 +721,7 @@ function viewSeeker(app) {
     <div id="deckbox"></div></div>`;
   if ($("#go-verify")) $("#go-verify").onclick = () => { UI.seekerTab = "verify"; render(); };
   mountDeck($("#deckbox"), feed, (j) => jobCard(j, s), seekerSwipe,
-    `<h3>You've seen every job that fits you.</h3><p class="muted" style="margin-top:6px">New jobs appear here as companies post them.</p>`);
+    emptyFeedHint(s));
   const top = feed[0];
   if (top) {
     const menuBtn = $(".card.top .menu-btn");
