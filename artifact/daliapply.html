@@ -139,12 +139,18 @@ textarea.in { resize: vertical; }
 .item { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 14px 16px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; cursor: pointer; text-align: left; width: 100%; }
 .item:hover { border-color: var(--primary); }
 .item > div { min-width: 0; }
-.split { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr); }
+.split { display: grid; gap: 16px; align-items: start; grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr); }
 @media (max-width: 720px) { .split { grid-template-columns: 1fr; } }
 .chat { display: flex; flex-direction: column; min-height: 420px; }
 .msgs { flex: 1; display: flex; flex-direction: column; gap: 8px; overflow-y: auto; max-height: 420px; padding-bottom: 8px; }
+.msgrow { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
+.msgrow.me { align-items: flex-end; }
+.msgrow time { font-size: 11px; color: var(--muted); padding: 0 6px; }
+.daysep { text-align: center; font-size: 11.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin: 6px 0; }
+.item .when { font-size: 12px; color: var(--muted); white-space: nowrap; }
+.item .preview { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .msg { max-width: 80%; padding: 8px 12px; border-radius: 16px; background: var(--bg); font-size: 14px; overflow-wrap: anywhere; }
-.msg.me { margin-left: auto; background: var(--primary); color: var(--primary-ink); }
+.msgrow.me .msg { background: var(--primary); color: var(--primary-ink); }
 pre.resume { white-space: pre-wrap; font-family: var(--body); font-size: 12.5px; max-height: 280px; overflow: auto; background: var(--bg); padding: 12px; border-radius: 12px; margin: 0; }
 .big-num { font-family: var(--display); font-weight: 800; font-size: 40px; font-variant-numeric: tabular-nums; }
 .meter { height: 8px; border-radius: 99px; background: var(--soft); overflow: hidden; }
@@ -531,7 +537,7 @@ function render(fromData = false) {
   const r = UI.route;
   // the menu shows only the side you're logged in as
   const link = (k, l, cls = "") => `<a href="#${k}" class="${cls}" ${r === k ? 'aria-current="page"' : ""}>${l}</a>`;
-  const admin = S.isOwner ? link("admin", "Admin") : "";
+  const admin = ""; // Admin is reachable only at the page's #admin address, for the owner
   const who = S.role === "seeker" ? (me() || {}).email : S.role === "company" ? (myCompany() || {}).name : "";
   $("#toplinks").innerHTML = !S.role
     ? link("seeker", '<span class="wide">Job seeker</span><span class="narrow">Seeker</span> login', "login") + link("company", "Company login", "login primary") + admin
@@ -854,16 +860,36 @@ function seekerCard(s, j) {
 }
 
 /* ---------- Matches and chat ---------- */
+const dayKey = (t) => new Date(t).toDateString();
+function dayLabel(t) {
+  const d = new Date(t), today = new Date(), y = new Date(Date.now() - DAY);
+  if (dayKey(t) === today.toDateString()) return "Today";
+  if (dayKey(t) === y.toDateString()) return "Yesterday";
+  return d.toLocaleDateString("en-PH", { month: "short", day: "numeric", year: d.getFullYear() === today.getFullYear() ? undefined : "numeric" });
+}
+const clock = (t) => new Date(t).toLocaleTimeString("en-PH", { hour: "numeric", minute: "2-digit" });
+const stamp = (t) => `${dayLabel(t)}, ${clock(t)}`;
+/* Which side wrote a message. One account can hold both a seeker and a company profile,
+   so the side is stored on each message; older messages fall back to the account id. */
+function isMine(x) { return x.fromSide ? x.fromSide === S.role : x.from === S.uid; }
+function lastMessage(matchId) {
+  let last = null; for (const x of Object.values(D.messages)) if (x.matchId === matchId && (!last || x.at > last.at)) last = x;
+  return last;
+}
 function myMatches() {
   return Object.entries(D.matches).map(([id, m]) => ({ id, ...m, job: D.jobs[m.jobId] || {} }))
     .filter((m) => (S.role === "seeker" ? m.seekerId === S.uid : m.job.companyId === S.uid)).sort((a, b) => b.at - a.at);
 }
 function viewMatches(app) {
-  const ms = myMatches();
   if (UI.openMatch && D.matches[UI.openMatch]) return matchChat(app, UI.openMatch);
+  // newest conversation first: last message time, or the match time when nobody has written yet
+  const ms = myMatches().map((m) => ({ ...m, last: lastMessage(m.id) })).sort((a, b) => (b.last?.at || b.at) - (a.last?.at || a.at));
   app.innerHTML = `<div class="stack"><h2 style="font-size:30px">Matches</h2><div class="list">${ms.map((m) => {
     const asSeeker = S.role === "seeker"; const s = D.seekers[m.seekerId] || {};
-    return `<button class="item" data-m="${h(m.id)}"><div><b>${h(asSeeker ? m.job.companyName : `${s.first} ${s.last}`)}</b><p class="small muted">${asSeeker ? h(m.job.title) : `${h(s.headline)} · for ${h(m.job.title)}`}</p></div><span class="chip gold">Match</span></button>`;
+    const sub = asSeeker ? h(m.job.title) : `${h(s.headline)} · for ${h(m.job.title)}`;
+    const preview = m.last ? `${isMine(m.last) ? "You: " : ""}${h(m.last.body)}` : `<span class="chip gold">New match</span> Say hello`;
+    return `<button class="item" data-m="${h(m.id)}"><div style="flex:1"><div class="row" style="justify-content:space-between;flex-wrap:nowrap"><b>${h(asSeeker ? m.job.companyName : `${s.first} ${s.last}`)}</b><span class="when">${stamp(m.last?.at || m.at)}</span></div>
+      <p class="small muted">${sub}</p><p class="small preview">${preview}</p></div></button>`;
   }).join("") || `<div class="panel"><p class="muted">No matches yet. A match happens when a company and a seeker both swipe right on the same job.</p></div>`}</div></div>`;
   app.querySelectorAll("[data-m]").forEach((b) => (b.onclick = () => { UI.openMatch = b.dataset.m; render(); }));
 }
@@ -871,23 +897,23 @@ function matchChat(app, id) {
   const m = D.matches[id]; const j = D.jobs[m.jobId] || {}; const s = D.seekers[m.seekerId] || {};
   const asSeeker = S.role === "seeker";
   const thread = Object.values(D.messages).filter((x) => x.matchId === id).sort((a, b) => a.at - b.at);
-  const range = (a, b) => (a || b ? `${php(a)} – ${php(b)}` : "Not stated");
+  const range = (a, b) => (a || b ? `${php(a)} – ${php(b)} a month` : "Not stated");
   app.innerHTML = `<div class="stack"><div><button class="btn ghost small" id="back">← All matches</button></div><div class="split">
     <aside class="panel stack">${asSeeker
       ? `<div class="row" style="flex-wrap:nowrap"><div class="logo-tile">${h((j.companyName || "?")[0])}</div><div><h3>${h(j.companyName)}</h3><p class="muted small">${h(j.title)}</p></div></div>
-         <p><b>Salary:</b> ${range(j.salaryMin, j.salaryMax)} a month</p><p class="small" style="white-space:pre-line">${h(j.description)}</p>`
+         <p><b>Salary:</b> ${range(j.salaryMin, j.salaryMax)}</p><p class="small" style="white-space:pre-line">${h(j.description)}</p>`
       : `<h3 style="font-size:24px">${h(s.first)} ${h(s.last)}</h3><p class="muted">${h(s.headline)} · ${s.totalYears} yrs</p>
-         <p><b>Expected salary:</b> ${range(s.salaryMin, s.salaryMax)} a month</p>${s.email ? `<p><b>Email:</b> ${h(s.email)}</p>` : ""}
+         <p><b>Expected salary:</b> ${range(s.salaryMin, s.salaryMax)}</p>${s.email ? `<p><b>Email:</b> ${h(s.email)}</p>` : ""}
          <div class="chips">${(s.skills || []).map((k) => `<span class="chip">${h(k.label)} ${k.years} yrs</span>`).join("")}</div>
          ${s.resumeText ? `<pre class="resume">${h(s.resumeText)}</pre>` : ""}`}</aside>
-    <section class="panel chat"><div class="msgs" id="msgs">${thread.map((x) => `<div class="msg ${x.from === S.uid ? "me" : ""}">${h(x.body)}</div>`).join("") || `<p class="muted small" style="text-align:center">It's a match! Say hello.</p>`}</div>
+    <section class="panel chat"><div class="msgs" id="msgs"><p class="daysep">Matched ${stamp(m.at)}</p>${thread.map((x, i) => `${i === 0 || dayKey(x.at) !== dayKey(thread[i - 1].at) ? `<p class="daysep">${dayLabel(x.at)}</p>` : ""}<div class="msgrow ${isMine(x) ? "me" : ""}"><div class="msg">${h(x.body)}</div><time datetime="${new Date(x.at).toISOString()}">${clock(x.at)}</time></div>`).join("") || `<p class="muted small" style="text-align:center">It's a match! Say hello.</p>`}</div>
       <form class="row" id="send" style="flex-wrap:nowrap"><input class="in" id="msg-in" placeholder="Write a message" autocomplete="off" maxlength="2000"><button class="btn">Send</button></form></section></div></div>`;
   $("#back").onclick = () => { UI.openMatch = null; render(); };
   const ms = $("#msgs"); ms.scrollTop = ms.scrollHeight;
   $("#send").onsubmit = async (e) => {
     e.preventDefault(); const body = $("#msg-in").value.trim(); if (!body) return;
     $("#msg-in").value = ""; $("#msg-in").blur();
-    await put("messages", newId(), { matchId: id, from: S.uid, body, at: now() });
+    await put("messages", newId(), { matchId: id, from: S.uid, fromSide: S.role, body, at: now() });
     $("#msg-in")?.focus();
   };
 }
