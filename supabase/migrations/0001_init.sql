@@ -195,7 +195,7 @@ create table payouts (
   processed_at timestamptz
 );
 
-create or replace view seeker_balances as
+create or replace view seeker_balances with (security_invoker = true) as
 select s.id as seeker_id,
        coalesce((select sum(amount_php) from rewards r where r.seeker_id = s.id), 0)
      - coalesce((select sum(amount_php) from payouts p where p.seeker_id = s.id and p.status <> 'rejected'), 0)
@@ -414,6 +414,21 @@ begin
   limit p_limit;
 end $$;
 
+-- Landing-page preview for companies who have not signed up: no names, no numbers.
+create or replace function preview_candidates(p_skills text[], p_role text default null)
+returns table (headline text, total_years numeric, skills jsonb)
+language sql stable security definer set search_path = public as $$
+  select s.headline, s.total_years,
+         (select coalesce(jsonb_agg(jsonb_build_object('skill', coalesce(sk.label, sk.skill), 'years', sk.years) order by sk.years desc), '[]')
+            from (select * from seeker_skills where seeker_id = s.id order by years desc limit 5) sk)
+  from seekers s
+  where s.profile_confirmed
+    and (p_role is null or s.headline ilike '%' || p_role || '%')
+    and (select count(*) from seeker_skills sk where sk.seeker_id = s.id and sk.skill = any (p_skills)) = cardinality(p_skills)
+  order by s.total_years desc
+  limit 3
+$$;
+
 -- Full profile, only after a match.
 create or replace function matched_profile(p_match uuid)
 returns table (
@@ -470,6 +485,7 @@ create policy "active jobs public" on jobs for select using (status = 'active' o
 create policy "company writes jobs" on jobs for insert with check (
   company_id = auth.uid() and exists (select 1 from companies where id = auth.uid() and domain_verified));
 create policy "company updates jobs" on jobs for update using (company_id = auth.uid());
+create policy "admin updates jobs" on jobs for update using (is_admin());
 
 create policy "job skills readable" on job_skills for select using (true);
 create policy "job skills write" on job_skills for all
@@ -511,14 +527,14 @@ declare
   v_balance int;
   v_id uuid;
 begin
-  if (select verification_status from seekers where id = auth.uid()) <> 'verified' then
+  if coalesce((select verification_status from seekers where id = auth.uid()), 'unverified') <> 'verified' then
     raise exception 'NOT_VERIFIED';
   end if;
   if p_amount < setting_int('min_cashout_php') then
     raise exception 'BELOW_MINIMUM';
   end if;
   select balance_php into v_balance from seeker_balances where seeker_id = auth.uid();
-  if p_amount > v_balance then
+  if p_amount > coalesce(v_balance, 0) then
     raise exception 'INSUFFICIENT_BALANCE';
   end if;
   insert into payouts (seeker_id, amount_php, method, account_number)
