@@ -5,7 +5,7 @@ export function SeekerNav() {
     <nav className="flex flex-wrap gap-2 text-sm">
       <Link className="btn-ghost" href="/seeker">Jobs</Link>
       <Link className="btn-ghost" href="/matches">Matches</Link>
-      <Link className="btn-ghost" href="/seeker/rewards">Rewards</Link>
+      <Link className="btn-ghost" href="/seeker/verify">Verify ID</Link>
       <Link className="btn-ghost" href="/seeker/profile">Profile</Link>
       <form action="/auth/signout" method="post"><button className="btn-ghost">Sign out</button></form>
     </nav>

@@ -41,7 +41,7 @@ export default async function NewJob() {
       <CompanyNav />
       <form action={createJob} className="card mx-auto max-w-2xl space-y-4">
         <h1 className="text-2xl font-bold">Post a job</h1>
-        <p className="text-sm text-muted">$40 per post. Includes 30 paid right swipes: each verified seeker you swipe right on earns PHP 20, which is why seekers keep their profiles up to date.</p>
+        <p className="text-sm text-muted">$40 per post.</p>
         <label className="block"><span className="label">Job title</span><input name="title" required className="input" placeholder="Senior PHP Developer" /></label>
         <label className="block"><span className="label">Description and key requirements</span><textarea name="description" rows={5} className="input" /></label>
         <label className="block">

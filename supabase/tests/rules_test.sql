@@ -1,4 +1,4 @@
--- Exercises matching, hiding, caps, rewards and guards against the real migration.
+-- Exercises matching, hiding, caps and guards against the real migration.
 -- Runs as superuser; `test.uid` impersonates a signed-in user for auth.uid().
 -- Run: ./supabase/tests/run.sh
 \set ON_ERROR_STOP on
@@ -87,14 +87,11 @@ do $$ begin
   assert (select count(*) from company_candidates('00000000-0000-0000-0000-0000000000b1', '[{"skill":"management","min_years":1}]')) = 1, 'search filter';
 end $$;
 
--- Company swipes right on both: only verified d1 earns PHP 20
+-- Company swipes right on both: no match until the seeker also swipes right
 insert into company_swipes values ('00000000-0000-0000-0000-0000000000b1', '00000000-0000-0000-0000-0000000000d1', 'right');
 insert into company_swipes values ('00000000-0000-0000-0000-0000000000b1', '00000000-0000-0000-0000-0000000000d2', 'right');
 reset test.uid;
 do $$ begin
-  assert (select count(*) from rewards) = 1, 'only verified seeker rewarded';
-  assert (select amount_php from rewards) = 20, 'PHP 20';
-  assert (select reward_swipes_used from jobs where title = 'PHP Lead') = 1, 'unverified does not count toward 30';
   assert (select count(*) from matches) = 0, 'no match yet';
 end $$;
 
@@ -121,14 +118,6 @@ do $$ begin
 end $$;
 reset test.uid;
 
--- Reward cap: 30 paid swipes per post
-update jobs set reward_swipes_used = 30 where title = 'PHP Dev';
-update seekers set verification_status = 'verified' where id = '00000000-0000-0000-0000-0000000000d2';
-insert into company_swipes values ('00000000-0000-0000-0000-0000000000b2', '00000000-0000-0000-0000-0000000000d2', 'right');
-do $$ begin
-  assert (select count(*) from rewards where job_id = '00000000-0000-0000-0000-0000000000b2') = 0, 'cap reached, no reward';
-end $$;
-
 -- Daily right-swipe cap
 update app_settings set value = '1' where key = 'seeker_daily_right_swipes';
 insert into jobs (id, company_id, title, country, languages, status, paid_at)
@@ -139,12 +128,5 @@ do $$ begin
     assert false, 'daily cap should block';
   exception when raise_exception then null; end;
 end $$;
-
--- Payouts: below minimum rejected
-set test.uid = '00000000-0000-0000-0000-0000000000d1';
-do $$ begin
-  begin perform request_payout(20, 'gcash', '0917'); assert false; exception when raise_exception then null; end;
-end $$;
-reset test.uid;
 
 \echo ALL RULE TESTS PASSED

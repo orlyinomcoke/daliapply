@@ -1,5 +1,4 @@
 "use client";
-import { useState } from "react";
 import { SwipeDeck } from "@/components/SwipeDeck";
 import { companySwipe } from "../../actions/swipe";
 
@@ -10,23 +9,15 @@ export type SeekerCard = {
   salary_badge: string; why: string | null; verified: boolean;
 };
 
-export function CompanyDeck({ jobId, seekers, paidUsed, paidCap }: { jobId: string; seekers: SeekerCard[]; paidUsed: number; paidCap: number }) {
-  const [used, setUsed] = useState(paidUsed);
+export function CompanyDeck({ jobId, seekers }: { jobId: string; seekers: SeekerCard[] }) {
   return (
     <div className="space-y-3">
-      <p className="text-center text-sm text-muted">
-        {used >= paidCap ? "Reward pool used: right swipes still work but no longer pay the seeker." : `${paidCap - used} of ${paidCap} paid right swipes left on this post`}
-      </p>
       <SwipeDeck
         items={seekers}
         rightLabel="Interested"
         leftLabel="Not for this job"
         empty={<>No more candidates for this job right now. Try a different search.</>}
-        onSwipe={async (s, dir) => {
-          const err = await companySwipe(jobId, s.id, dir);
-          if (!err && dir === "right" && s.verified) setUsed((u) => u + 1);
-          return err;
-        }}
+        onSwipe={(s, dir) => companySwipe(jobId, s.id, dir)}
         render={(s) => (
           <div className="flex h-full flex-col gap-3">
             <div>

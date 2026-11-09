@@ -14,11 +14,8 @@ create table app_settings (
 
 insert into app_settings (key, value) values
   ('seeker_daily_right_swipes', '25'),
-  ('paid_right_swipes_per_post', '30'),
-  ('reward_per_right_swipe_php', '20'),
   ('job_post_price_usd', '40'),
-  ('hide_company_days', '30'),
-  ('min_cashout_php', '200');
+  ('hide_company_days', '30');
 
 create or replace function setting_int(p_key text) returns int
 language sql stable as $$
@@ -103,7 +100,6 @@ create table jobs (
   languages text[] not null default '{}',
   status job_status not null default 'draft',
   paid_at timestamptz,
-  reward_swipes_used int not null default 0,
   created_at timestamptz not null default now()
 );
 
@@ -170,39 +166,6 @@ create table reports (
 );
 
 -- ---------------------------------------------------------------------------
--- Rewards and payouts
--- ---------------------------------------------------------------------------
-create table rewards (
-  id uuid primary key default gen_random_uuid(),
-  seeker_id uuid not null references seekers (id) on delete cascade,
-  job_id uuid not null references jobs (id) on delete cascade,
-  amount_php int not null,
-  created_at timestamptz not null default now(),
-  unique (seeker_id, job_id) -- paid once per job
-);
-
-create type payout_status as enum ('requested', 'paid', 'rejected');
-create type payout_method as enum ('gcash', 'maya');
-
-create table payouts (
-  id uuid primary key default gen_random_uuid(),
-  seeker_id uuid not null references seekers (id) on delete cascade,
-  amount_php int not null check (amount_php > 0),
-  method payout_method not null,
-  account_number text not null,
-  status payout_status not null default 'requested',
-  created_at timestamptz not null default now(),
-  processed_at timestamptz
-);
-
-create or replace view seeker_balances with (security_invoker = true) as
-select s.id as seeker_id,
-       coalesce((select sum(amount_php) from rewards r where r.seeker_id = s.id), 0)
-     - coalesce((select sum(amount_php) from payouts p where p.seeker_id = s.id and p.status <> 'rejected'), 0)
-       as balance_php
-from seekers s;
-
--- ---------------------------------------------------------------------------
 -- Helpers
 -- ---------------------------------------------------------------------------
 create or replace function is_admin() returns boolean
@@ -226,7 +189,7 @@ language sql immutable as $$
 $$;
 
 -- ---------------------------------------------------------------------------
--- Swipe triggers: daily cap, rewards, match creation
+-- Swipe triggers: daily cap, match creation
 -- ---------------------------------------------------------------------------
 create or replace function before_seeker_swipe() returns trigger
 language plpgsql security definer set search_path = public as $$
@@ -270,27 +233,10 @@ for each row execute function after_seeker_swipe();
 
 create or replace function after_company_swipe() returns trigger
 language plpgsql security definer set search_path = public as $$
-declare
-  v_verified boolean;
-  v_job jobs%rowtype;
 begin
   if new.direction <> 'right' then
     return new;
   end if;
-
-  -- Reward: verified seekers only, once per job, first N paid right swipes per post.
-  select verification_status = 'verified' into v_verified from seekers where id = new.seeker_id;
-  select * into v_job from jobs where id = new.job_id for update;
-
-  if v_verified
-     and v_job.paid_at is not null
-     and v_job.reward_swipes_used < setting_int('paid_right_swipes_per_post')
-     and not exists (select 1 from rewards where seeker_id = new.seeker_id and job_id = new.job_id) then
-    insert into rewards (seeker_id, job_id, amount_php)
-    values (new.seeker_id, new.job_id, setting_int('reward_per_right_swipe_php'));
-    update jobs set reward_swipes_used = reward_swipes_used + 1 where id = new.job_id;
-  end if;
-
   perform maybe_create_match(new.job_id, new.seeker_id);
   return new;
 end $$;
@@ -461,8 +407,6 @@ alter table hidden_companies enable row level security;
 alter table matches enable row level security;
 alter table messages enable row level security;
 alter table reports enable row level security;
-alter table rewards enable row level security;
-alter table payouts enable row level security;
 
 create policy "settings readable" on app_settings for select using (true);
 
@@ -516,32 +460,6 @@ create policy "message parties write" on messages for insert with check (
 create policy "report insert" on reports for insert with check (reporter_id = auth.uid());
 create policy "report admin" on reports for select using (is_admin());
 
-create policy "rewards self" on rewards for select using (seeker_id = auth.uid() or is_admin());
-create policy "payouts self" on payouts for select using (seeker_id = auth.uid() or is_admin());
-create policy "payouts admin" on payouts for update using (is_admin());
-
--- Payout requests go through a function so the balance and minimum are enforced.
-create or replace function request_payout(p_amount int, p_method payout_method, p_account text)
-returns uuid language plpgsql security definer set search_path = public as $$
-declare
-  v_balance int;
-  v_id uuid;
-begin
-  if coalesce((select verification_status from seekers where id = auth.uid()), 'unverified') <> 'verified' then
-    raise exception 'NOT_VERIFIED';
-  end if;
-  if p_amount < setting_int('min_cashout_php') then
-    raise exception 'BELOW_MINIMUM';
-  end if;
-  select balance_php into v_balance from seeker_balances where seeker_id = auth.uid();
-  if p_amount > coalesce(v_balance, 0) then
-    raise exception 'INSUFFICIENT_BALANCE';
-  end if;
-  insert into payouts (seeker_id, amount_php, method, account_number)
-  values (auth.uid(), p_amount, p_method, p_account) returning id into v_id;
-  return v_id;
-end $$;
-
 -- ---------------------------------------------------------------------------
 -- Storage buckets (private)
 -- ---------------------------------------------------------------------------
@@ -591,11 +509,9 @@ begin
   end if;
   if tg_op = 'INSERT' then
     new.paid_at := null;
-    new.reward_swipes_used := 0;
     if new.status = 'active' then new.status := 'awaiting_payment'; end if;
   else
     new.paid_at := old.paid_at;
-    new.reward_swipes_used := old.reward_swipes_used;
     if new.status = 'active' and old.paid_at is null then
       raise exception 'JOB_NOT_PAID';
     end if;

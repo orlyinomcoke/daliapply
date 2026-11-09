@@ -13,7 +13,7 @@ export default async function CompanyHome() {
   const { supabase, user } = await requireRole("company");
   const [{ data: company }, { data: jobs }] = await Promise.all([
     supabase.from("companies").select("*").eq("id", user.id).single(),
-    supabase.from("jobs").select("id,title,status,reward_swipes_used,created_at").eq("company_id", user.id).order("created_at", { ascending: false }),
+    supabase.from("jobs").select("id,title,status,created_at").eq("company_id", user.id).order("created_at", { ascending: false }),
   ]);
 
   return (
@@ -31,7 +31,7 @@ export default async function CompanyHome() {
           <Link key={j.id} href={`/company/jobs/${j.id}`} className="card flex items-center justify-between hover:border-brand">
             <div>
               <p className="font-semibold">{j.title}</p>
-              <p className="text-sm text-muted">{STATUS[j.status]} · {j.reward_swipes_used}/30 paid right swipes used</p>
+              <p className="text-sm text-muted">{STATUS[j.status]}</p>
             </div>
             <span aria-hidden>→</span>
           </Link>

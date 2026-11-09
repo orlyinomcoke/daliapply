@@ -30,23 +30,11 @@ async function markJobPaid(formData: FormData) {
   revalidatePath("/admin");
 }
 
-async function settlePayout(formData: FormData) {
-  "use server";
-  const { supabase } = await requireRole("admin");
-  const { error } = await supabase
-    .from("payouts")
-    .update({ status: formData.get("decision") === "paid" ? "paid" : "rejected", processed_at: new Date().toISOString() })
-    .eq("id", String(formData.get("payout_id")));
-  if (error) throw error;
-  revalidatePath("/admin");
-}
-
 export default async function Admin() {
   const { supabase } = await requireRole("admin");
-  const [{ data: pending }, { data: jobs }, { data: payouts }] = await Promise.all([
+  const [{ data: pending }, { data: jobs }] = await Promise.all([
     supabase.from("seekers").select("id, first_name, last_name, id_document_type, id_document_path, updated_at").eq("verification_status", "pending").order("updated_at"),
     supabase.from("jobs").select("id, title, created_at, companies(name, domain)").eq("status", "awaiting_payment").order("created_at"),
-    supabase.from("payouts").select("*").eq("status", "requested").order("created_at"),
   ]);
   const service = supabaseService();
   const ids = await Promise.all(
@@ -98,22 +86,6 @@ export default async function Admin() {
         </div>
       </section>
 
-      <section>
-        <h2 className="mb-4 text-xl font-bold">Cash-out requests</h2>
-        <div className="grid gap-3">
-          {(payouts ?? []).map((p) => (
-            <form key={p.id} action={settlePayout} className="card flex flex-wrap items-center justify-between gap-2">
-              <span>PHP {p.amount_php} to {p.method === "gcash" ? "GCash" : "Maya"} {p.account_number}</span>
-              <input type="hidden" name="payout_id" value={p.id} />
-              <span className="flex gap-2">
-                <button name="decision" value="paid" className="btn-primary">Mark sent</button>
-                <button name="decision" value="rejected" className="btn-ghost">Reject</button>
-              </span>
-            </form>
-          ))}
-          {!payouts?.length && <p className="text-muted">None.</p>}
-        </div>
-      </section>
     </div>
   );
 }

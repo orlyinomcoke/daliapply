@@ -19,8 +19,8 @@ export default async function SeekerHome() {
         <div className="card flex flex-wrap items-center justify-between gap-3 !bg-brand-soft">
           <p className="text-sm">
             {me.verification_status === "pending"
-              ? "Your ID is being reviewed. Once verified, you earn PHP 20 each time a company swipes right on you."
-              : "Verify your ID to earn PHP 20 each time a company swipes right on you."}
+              ? "Your ID is being reviewed. Once approved, companies see a Verified badge on your card."
+              : "Verify your ID to get a Verified badge. Companies see it on your card."}
           </p>
           {me.verification_status !== "pending" && <Link href="/seeker/verify" className="btn-primary">Verify now</Link>}
         </div>

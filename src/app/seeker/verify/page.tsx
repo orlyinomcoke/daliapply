@@ -45,7 +45,7 @@ export default async function Verify() {
           <li>✓ Email confirmed with a one-time code</li>
           <li>{status === "verified" ? "✓" : "○"} Valid government ID {status === "pending" && "(under review)"}</li>
         </ul>
-        {status === "verified" && <p className="text-sm">You&apos;re verified. You earn PHP 20 each time a company swipes right on you.</p>}
+        {status === "verified" && <p className="text-sm">You&apos;re verified. Companies see a Verified badge on your card.</p>}
         {status === "pending" && <p className="text-sm text-muted">We review IDs by hand, usually within a day.</p>}
         {status === "rejected" && <p className="text-sm text-brand">We couldn&apos;t verify that ID{s?.verification_note ? `: ${s.verification_note}` : "."} Please try again.</p>}
         {(status === "unverified" || status === "rejected") && (

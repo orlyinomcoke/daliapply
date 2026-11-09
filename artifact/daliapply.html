@@ -164,14 +164,11 @@ pre.resume { white-space: pre-wrap; font-family: var(--body); font-size: 12.5px;
    ============================================================ */
 const CFG = {
   dailyRightSwipes: 25,
-  paidSwipesPerPost: 30,
-  rewardPhp: 20,
   postPriceUsd: 40,
   hideCompanyDays: 30,
-  minCashout: 200,
 };
 const FREE_MAIL = ["gmail.com","yahoo.com","yahoo.com.ph","outlook.com","hotmail.com","live.com","icloud.com","proton.me","protonmail.com","aol.com","gmx.com","mail.com","ymail.com"];
-const COLLECTIONS = ["seekers","companies","jobs","swipes","hidden","matches","messages","rewards","payouts"];
+const COLLECTIONS = ["seekers","companies","jobs","swipes","hidden","matches","messages"];
 
 /* ============================================================
    Rule-based resume reader and search parser (no AI, no cost)
@@ -353,7 +350,7 @@ async function boot() {
 }
 
 /* ============================================================
-   Domain helpers: matching, hiding, rewards
+   Domain helpers: matching and hiding
    ============================================================ */
 const now = () => Date.now();
 const DAY = 86400000;
@@ -397,12 +394,6 @@ function isHidden(seekerId, companyId) { const h = D.hidden[`${seekerId}_${compa
 function rightSwipesToday(seekerId) {
   return Object.values(D.swipes).filter((x) => x.side === "seeker" && x.seekerId === seekerId && x.dir === "right" && x.at > now() - DAY).length;
 }
-function balanceOf(seekerId) {
-  const earned = Object.values(D.rewards).filter((r) => r.seekerId === seekerId).reduce((a, r) => a + r.amount, 0);
-  const out = Object.values(D.payouts).filter((p) => p.seekerId === seekerId && p.status !== "rejected").reduce((a, p) => a + p.amount, 0);
-  return earned - out;
-}
-function rewardUsed(jobId) { return Object.values(D.rewards).filter((r) => r.jobId === jobId).length; }
 function seekerFeed() {
   const s = me(); if (!s) return [];
   return Object.entries(D.jobs).map(([id, j]) => ({ id, ...j }))
@@ -435,11 +426,6 @@ async function maybeMatch(jobId, seekerId) {
 }
 async function companyRight(jobId, seekerId) {
   await put("swipes", swipeId("company", seekerId, jobId), { side: "company", seekerId, jobId, dir: "right", at: now() });
-  const s = D.seekers[seekerId], j = D.jobs[jobId];
-  const rid = `${seekerId}_${jobId}`;
-  if (s && s.verification === "verified" && j && j.paid && rewardUsed(jobId) < CFG.paidSwipesPerPost && !D.rewards[rid]) {
-    await put("rewards", rid, { seekerId, jobId, amount: CFG.rewardPhp, at: now() });
-  }
 }
 async function seekerSwipe(job, dir) {
   if (dir === "right" && rightSwipesToday(S.uid) >= CFG.dailyRightSwipes) return `You've used today's ${CFG.dailyRightSwipes} right swipes. Left swipes still work.`;
@@ -583,7 +569,7 @@ function viewHome(app) {
   <section class="promises">
     <div><b>Apply once</b><span class="muted">A right swipe sends the profile we read from your resume. Never fill a form again.</span></div>
     <div><b>Fair first look</b><span class="muted">No photo, age, gender or full name until it's a match. Companies judge skills first.</span></div>
-    <div><b>Seekers get paid</b><span class="muted">Verified seekers earn ${php(CFG.rewardPhp)} when a company swipes right on them, up to ${CFG.paidSwipesPerPost} per job post.</span></div>
+    <div><b>Real people only</b><span class="muted">Seekers confirm their email and a government ID. Companies sign up with a verified work domain.</span></div>
   </section>`;
   const input = $("#hero-q"); startTyper(input);
   for (const s of ["seeker", "company"]) $("#t-" + s).onclick = () => { UI.side = s; UI.preview = null; render(); };
@@ -654,16 +640,15 @@ function viewSeeker(app) {
   const s = me();
   if (!s) return signupBox(app, "seeker");
   if (!s.confirmed || UI.seekerTab === "profile") return seekerProfile(app, s);
-  const tabs = [["jobs", "Jobs"], ["rewards", "Rewards"], ["verify", "Verify ID"], ["profile", "My profile"]];
+  const tabs = [["jobs", "Jobs"], ["verify", "Verify ID"], ["profile", "My profile"]];
   app.innerHTML = `<div class="tabs" role="tablist">${tabs.map(([k, l]) => `<button role="tab" data-t="${k}" aria-selected="${UI.seekerTab === k}">${l}</button>`).join("")}</div><div id="sv"></div>`;
   app.querySelectorAll("[data-t]").forEach((b) => (b.onclick = () => { UI.seekerTab = b.dataset.t; render(); }));
   const box = $("#sv");
-  if (UI.seekerTab === "rewards") return seekerRewards(box, s);
   if (UI.seekerTab === "verify") return seekerVerify(box, s);
   const feed = seekerFeed();
   const left = CFG.dailyRightSwipes - rightSwipesToday(S.uid);
   box.innerHTML = `<div class="stack">
-    ${s.verification !== "verified" ? `<div class="notice gold"><span>${s.verification === "pending" ? "Your ID is being reviewed. Once approved you earn " + php(CFG.rewardPhp) + " each time a company swipes right on you." : "Verify your ID to earn " + php(CFG.rewardPhp) + " each time a company swipes right on you."}</span>${s.verification === "pending" ? "" : `<button class="btn small" id="go-verify">Verify now</button>`}</div>` : ""}
+    ${s.verification !== "verified" ? `<div class="notice gold"><span>${s.verification === "pending" ? "Your ID is being reviewed. Once approved, companies see a Verified badge on your card." : "Verify your ID to get a Verified badge. Companies see it on your card."}</span>${s.verification === "pending" ? "" : `<button class="btn small" id="go-verify">Verify now</button>`}</div>` : ""}
     <p class="small muted" style="text-align:center">${feed.length} job${feed.length === 1 ? "" : "s"} for you · ${left} right swipes left today</p>
     <div id="deckbox"></div></div>`;
   if ($("#go-verify")) $("#go-verify").onclick = () => { UI.seekerTab = "verify"; render(); };
@@ -746,9 +731,9 @@ function seekerVerify(box, s) {
   const st = s.verification || "unverified";
   box.innerHTML = `<div class="panel stack" style="max-width:520px">
     <h2>Verify your identity</h2>
-    <p class="muted small">Only verified seekers earn rewards. Verification is an email code plus a valid government ID.</p>
+    <p class="muted small">Verified seekers get a badge on their card, so companies know they're real. Verification is an email code plus a valid government ID.</p>
     <div class="list small"><div>✓ Email confirmed with a one-time code</div><div>${st === "verified" ? "✓" : "○"} Government ID ${st === "pending" ? "(under review)" : st === "rejected" ? "(not accepted)" : ""}</div></div>
-    ${st === "verified" ? `<p>You're verified. You earn ${php(CFG.rewardPhp)} each time a company swipes right on you.</p>` : ""}
+    ${st === "verified" ? `<p>You're verified. Companies see a Verified badge on your card.</p>` : ""}
     ${st === "pending" ? `<p class="muted">We review IDs by hand, usually within a day.</p>` : ""}
     ${st === "rejected" ? `<p class="err">We couldn't verify that ID${s.verificationNote ? ": " + h(s.verificationNote) : "."} Please try again.</p>` : ""}
     ${st === "unverified" || st === "rejected" ? `<form class="stack" id="vf">
@@ -762,32 +747,6 @@ function seekerVerify(box, s) {
     toast("ID submitted for review.");
   };
 }
-function seekerRewards(box, s) {
-  const bal = balanceOf(S.uid);
-  const rows = [
-    ...Object.values(D.rewards).filter((r) => r.seekerId === S.uid).map((r) => ({ at: r.at, text: `${(D.jobs[r.jobId] || {}).companyName || "A company"} liked you for ${(D.jobs[r.jobId] || {}).title || "a job"}`, amt: "+ " + php(r.amount) })),
-    ...Object.values(D.payouts).filter((p) => p.seekerId === S.uid).map((p) => ({ at: p.at, text: `Cash-out to ${p.method} (${p.status})`, amt: "− " + php(p.amount) })),
-  ].sort((a, b) => b.at - a.at);
-  box.innerHTML = `<div class="split">
-    <div class="panel stack"><p class="muted small">Balance</p><p class="big-num">${php(bal)}</p>
-      <p class="small muted">You earn ${php(CFG.rewardPhp)} when a company swipes right on you, once per job. Cash out from ${php(CFG.minCashout)} to GCash or Maya.</p>
-      ${s.verification === "verified" ? `<form class="stack" id="co">
-        <div class="grid2"><label class="f">Send to<select class="in" id="co-m"><option>GCash</option><option>Maya</option></select></label>
-        <label class="f">Amount (PHP)<input class="in" id="co-a" type="number" min="${CFG.minCashout}" step="20" value="${Math.max(bal, 0)}"></label></div>
-        <label class="f">Mobile number<input class="in" id="co-n" placeholder="0917 123 4567" required></label>
-        <p class="err" id="co-err" hidden></p><button class="btn accent">Cash out</button></form>`
-        : `<p class="small">Only verified seekers earn rewards. <button class="btn small" id="rv">Verify your ID</button></p>`}</div>
-    <div class="panel stack"><h3>History</h3><div class="list small">${rows.map((r) => `<div class="row" style="justify-content:space-between;flex-wrap:nowrap"><span>${h(r.text)}</span><b style="white-space:nowrap">${r.amt}</b></div>`).join("") || `<p class="muted">Nothing yet. Rewards appear when companies swipe right on you.</p>`}</div></div></div>`;
-  if ($("#rv")) $("#rv").onclick = () => { UI.seekerTab = "verify"; render(); };
-  if ($("#co")) $("#co").onsubmit = async (e) => {
-    e.preventDefault(); const amt = +$("#co-a").value; const er = $("#co-err");
-    const fail = amt < CFG.minCashout ? `The minimum cash-out is ${php(CFG.minCashout)}.` : amt > bal ? `That's more than your balance of ${php(bal)}.` : null;
-    if (fail) { er.textContent = fail; er.hidden = false; return; }
-    await put("payouts", newId(), { seekerId: S.uid, amount: amt, method: $("#co-m").value, number: $("#co-n").value.trim(), status: "requested", at: now() });
-    toast("Cash-out requested. We'll send it soon.");
-  };
-}
-
 /* ---------- Company ---------- */
 function viewCompany(app) {
   const c = myCompany();
@@ -799,7 +758,7 @@ function viewCompany(app) {
     <div class="row" style="justify-content:space-between"><div><p class="small muted">${h(c.domain)} · verified domain</p><h2 style="font-size:30px">${h(c.name)}</h2></div>
       <button class="btn" id="new-job">Post a job · $${CFG.postPriceUsd}</button></div>
     <div class="list">${jobs.map(([id, j]) => `<button class="item" data-job="${h(id)}"><div><b>${h(j.title)}</b>
-      <p class="small muted">${j.paid ? "Live" : "Waiting for payment"} · ${rewardUsed(id)}/${CFG.paidSwipesPerPost} paid right swipes used</p></div><span aria-hidden="true">→</span></button>`).join("")
+      <p class="small muted">${j.paid ? "Live" : "Waiting for payment"}</p></div><span aria-hidden="true">→</span></button>`).join("")
       || `<div class="panel" style="text-align:center"><p class="muted">No jobs yet. Post one to start seeing candidates.</p></div>`}</div></div>`;
   $("#new-job").onclick = () => { UI.companyTab = "new"; render(); };
   app.querySelectorAll("[data-job]").forEach((b) => (b.onclick = () => { UI.openJob = b.dataset.job; UI.filters = { q: "", role: null, skills: [] }; render(); }));
@@ -807,7 +766,7 @@ function viewCompany(app) {
 function companyNewJob(app, c) {
   app.innerHTML = `<form class="panel stack" id="jf" style="max-width:720px;margin:0 auto">
     <div class="row" style="justify-content:space-between"><h2>Post a job</h2><button type="button" class="btn ghost small" id="jf-cancel">Cancel</button></div>
-    <p class="small muted">$${CFG.postPriceUsd} per post. It includes ${CFG.paidSwipesPerPost} paid right swipes: each verified seeker you swipe right on earns ${php(CFG.rewardPhp)}.</p>
+    <p class="small muted">$${CFG.postPriceUsd} per post.</p>
     <label class="f">Job title<input class="in" id="j-title" required placeholder="Senior PHP Developer"></label>
     <label class="f">Description and key requirements<textarea class="in" id="j-desc" rows="4"></textarea></label>
     <label class="f">Required skills and minimum years, one per line<textarea class="in" id="j-skills" rows="3" style="font-family:ui-monospace,monospace;font-size:13px" placeholder="PHP: 5&#10;Management: 2"></textarea></label>
@@ -825,11 +784,11 @@ function companyNewJob(app, c) {
   };
 }
 function companyJob(app, c, jobId) {
-  const j = D.jobs[jobId]; const used = rewardUsed(jobId);
+  const j = D.jobs[jobId];
   const head = `<div class="row" style="justify-content:space-between"><div><button class="btn ghost small" id="back">← All jobs</button><h2 style="font-size:28px;margin-top:10px">${h(j.title)}</h2></div></div>`;
   if (!j.paid) {
     app.innerHTML = `<div class="stack">${head}<div class="panel stack" style="max-width:520px"><h3>Pay $${CFG.postPriceUsd} to publish</h3>
-      <p class="muted small">About ${php(CFG.postPriceUsd * 58)}. Includes ${CFG.paidSwipesPerPost} paid right swipes for verified seekers.</p>
+      <p class="muted small">About ${php(CFG.postPriceUsd * 58)}.</p>
       <div class="notice small"><span>Demo: no real payment is taken. Online payment (GCash, Maya, cards) comes with the full launch.</span></div>
       <button class="btn accent" id="pay">Pay $${CFG.postPriceUsd} and publish (demo)</button></div></div>`;
     $("#back").onclick = () => { UI.openJob = null; render(); };
@@ -840,9 +799,6 @@ function companyJob(app, c, jobId) {
   app.innerHTML = `<div class="stack">${head}
     <form id="cs"><div class="bigsearch" style="width:100%"><input id="cs-q" value="${h(f.q)}" placeholder="Who are you looking for? e.g. programmer with 5 years in management and PHP" autocomplete="off"></div></form>
     <div class="chips">${f.role ? `<button class="chip" data-rm="role">Role: ${h(f.role)} ×</button>` : ""}${f.skills.map((k, i) => `<button class="chip" data-rm="${i}">${h(k.label)}${k.min ? ` ${k.min}+ yrs` : ""} ×</button>`).join("")}</div>
-    <div class="panel stack small" style="max-width:420px;margin:0 auto;width:100%;padding:12px 16px">
-      <div class="row" style="justify-content:space-between"><span>${used >= CFG.paidSwipesPerPost ? "Reward pool used: right swipes still work but no longer pay" : `${CFG.paidSwipesPerPost - used} of ${CFG.paidSwipesPerPost} paid right swipes left`}</span><b>${used}/${CFG.paidSwipesPerPost}</b></div>
-      <div class="meter"><i style="width:${(100 * Math.min(used, CFG.paidSwipesPerPost)) / CFG.paidSwipesPerPost}%"></i></div></div>
     <div id="deckbox"></div></div>`;
   $("#back").onclick = () => { UI.openJob = null; render(); };
   $("#cs").onsubmit = (e) => { e.preventDefault(); const q = $("#cs-q").value.trim(); const p = parseSearch(q); UI.filters = { q, role: p.role, skills: p.skills }; render(); };
@@ -904,7 +860,6 @@ function matchChat(app, id) {
 function viewAdmin(app) {
   if (!S.isOwner) { app.innerHTML = `<p class="panel muted">Only the Daliapply team can open the admin page.</p>`; return; }
   const pending = Object.entries(D.seekers).filter(([, s]) => s.verification === "pending");
-  const payouts = Object.entries(D.payouts).filter(([, p]) => p.status === "requested");
   const unpaid = Object.entries(D.jobs).filter(([, j]) => !j.paid);
   app.innerHTML = `<div class="stack">
     <h2 style="font-size:30px">Admin</h2>
@@ -912,14 +867,10 @@ function viewAdmin(app) {
       <div class="row" style="justify-content:space-between"><div><b>${h(s.first)} ${h(s.last)}</b><p class="small muted">${h(s.idType)} · ${h(s.idFile || "no file name")} · ${h(s.email || "")}</p></div></div>
       <p class="small muted">Check the name matches the resume and the ID is valid and not expired.</p>
       <div class="row"><button class="btn small" data-ok="${h(id)}">Approve</button><input class="in" style="flex:1;min-width:160px" placeholder="Reason if rejecting" id="note-${h(id)}"><button class="btn ghost small" data-no="${h(id)}">Reject</button></div></div>`).join("") || `<p class="muted small">Nothing to review.</p>`}</section>
-    <section class="stack"><h3>Cash-out requests (${payouts.length})</h3>${payouts.map(([id, p]) => { const s = D.seekers[p.seekerId] || {};
-      return `<div class="panel row" style="justify-content:space-between"><span>${php(p.amount)} to ${h(p.method)} ${h(p.number)} · ${h(s.first)} ${h(s.last)}</span><span class="row"><button class="btn small" data-sent="${h(id)}">Mark sent</button><button class="btn ghost small" data-rej="${h(id)}">Reject</button></span></div>`; }).join("") || `<p class="muted small">None.</p>`}</section>
     <section class="stack"><h3>Jobs waiting for payment (${unpaid.length})</h3>${unpaid.map(([id, j]) => `<div class="panel row" style="justify-content:space-between"><span>${h(j.title)} · ${h(j.companyName)}</span><button class="btn small" data-paid="${h(id)}">Mark paid</button></div>`).join("") || `<p class="muted small">None.</p>`}</section>
   </div>`;
   app.querySelectorAll("[data-ok]").forEach((b) => (b.onclick = () => patch("seekers", b.dataset.ok, { verification: "verified", verifiedAt: now(), verificationNote: "" })));
   app.querySelectorAll("[data-no]").forEach((b) => (b.onclick = () => patch("seekers", b.dataset.no, { verification: "rejected", verificationNote: $("#note-" + CSS.escape(b.dataset.no)).value.trim() })));
-  app.querySelectorAll("[data-sent]").forEach((b) => (b.onclick = () => patch("payouts", b.dataset.sent, { status: "sent", processedAt: now() })));
-  app.querySelectorAll("[data-rej]").forEach((b) => (b.onclick = () => patch("payouts", b.dataset.rej, { status: "rejected", processedAt: now() })));
   app.querySelectorAll("[data-paid]").forEach((b) => (b.onclick = () => patch("jobs", b.dataset.paid, { paid: true, paidAt: now() })));
 }
 

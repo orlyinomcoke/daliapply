@@ -50,7 +50,6 @@ export default async function JobPage({ params, searchParams }: { params: Promis
     const { data } = await supabase.rpc("company_candidates", { p_job: id, p_skills: skills, p_role: role, p_limit: 30 });
     seekers = (data ?? []).map((r: Record<string, unknown>) => ({ ...r, id: r.seeker_id as string }) as SeekerCard);
   }
-  const { data: cap } = await supabase.from("app_settings").select("value").eq("key", "paid_right_swipes_per_post").single();
 
   return (
     <div className="space-y-6">
@@ -86,7 +85,7 @@ export default async function JobPage({ params, searchParams }: { params: Promis
               <SubmitButton className="btn-ghost !py-1" pending="Searching…">Search</SubmitButton>
             </div>
           </form>
-          <CompanyDeck key={`${role}-${sp.skills}`} jobId={id} seekers={seekers} paidUsed={job.reward_swipes_used} paidCap={Number(cap?.value ?? 30)} />
+          <CompanyDeck key={`${role}-${sp.skills}`} jobId={id} seekers={seekers} />
         </>
       )}
     </div>
