@@ -351,6 +351,7 @@ async function boot() {
     S.isOwner = true;
   }
   try { S.role = localStorage.getItem("daliapply-role-" + S.uid) || null; } catch { S.role = null; }
+  try { S.me = localStorage.getItem("daliapply-acct-" + S.uid) || S.uid; } catch { S.me = S.uid; }
   if (db) {
     S.shared = true;
     let pending = COLLECTIONS.length;
@@ -370,8 +371,8 @@ async function boot() {
 const now = () => Date.now();
 const DAY = 86400000;
 const php = (n) => "PHP " + Number(n || 0).toLocaleString("en-PH");
-const me = () => D.seekers[S.uid];
-const myCompany = () => D.companies[S.uid];
+const me = () => D.seekers[S.me];
+const myCompany = () => D.companies[S.me];
 const swipeId = (side, seekerId, jobId) => `${side}_${seekerId}_${jobId}`;
 const matchId = (jobId, seekerId) => `${jobId}_${seekerId}`;
 const sw = (side, seekerId, jobId) => D.swipes[swipeId(side, seekerId, jobId)];
@@ -412,9 +413,9 @@ function rightSwipesToday(seekerId) {
 function seekerFeed() {
   const s = me(); if (!s) return [];
   return Object.entries(D.jobs).map(([id, j]) => ({ id, ...j }))
-    .filter((j) => j.paid && !sw("seeker", S.uid, j.id))
-    .filter((j) => (sw("company", S.uid, j.id) || {}).dir !== "left")
-    .filter((j) => !isHidden(S.uid, j.companyId))
+    .filter((j) => j.paid && !sw("seeker", S.me, j.id))
+    .filter((j) => (sw("company", S.me, j.id) || {}).dir !== "left")
+    .filter((j) => !isHidden(S.me, j.companyId))
     .filter((j) => passes(s, j))
     .sort((a, b) => score(s, b) - score(s, a) || (b.createdAt || 0) - (a.createdAt || 0));
 }
@@ -436,19 +437,19 @@ async function maybeMatch(jobId, seekerId) {
   if ((sw("seeker", seekerId, jobId) || {}).dir === "right" && (sw("company", seekerId, jobId) || {}).dir === "right" && !D.matches[matchId(jobId, seekerId)]) {
     await put("matches", matchId(jobId, seekerId), { jobId, seekerId, at: now() });
     const j = D.jobs[jobId];
-    if (seekerId === S.uid || (j && j.companyId === S.uid)) showMatch(jobId, seekerId);
+    if (seekerId === S.me || (j && j.companyId === S.me)) showMatch(jobId, seekerId);
   }
 }
 async function companyRight(jobId, seekerId) {
   await put("swipes", swipeId("company", seekerId, jobId), { side: "company", seekerId, jobId, dir: "right", at: now() });
 }
 async function seekerSwipe(job, dir) {
-  if (dir === "right" && rightSwipesToday(S.uid) >= CFG.dailyRightSwipes) return `You've used today's ${CFG.dailyRightSwipes} right swipes. Left swipes still work.`;
-  await put("swipes", swipeId("seeker", S.uid, job.id), { side: "seeker", seekerId: S.uid, jobId: job.id, dir, at: now() });
+  if (dir === "right" && rightSwipesToday(S.me) >= CFG.dailyRightSwipes) return `You've used today's ${CFG.dailyRightSwipes} right swipes. Left swipes still work.`;
+  await put("swipes", swipeId("seeker", S.me, job.id), { side: "seeker", seekerId: S.me, jobId: job.id, dir, at: now() });
   if (dir === "right") {
     // Sample companies answer instantly so you can see a match.
-    if (job.sample && job.autoLike && !sw("company", S.uid, job.id)) await companyRight(job.id, S.uid);
-    await maybeMatch(job.id, S.uid);
+    if (job.sample && job.autoLike && !sw("company", S.me, job.id)) await companyRight(job.id, S.me);
+    await maybeMatch(job.id, S.me);
   }
   return null;
 }
@@ -531,7 +532,7 @@ window.addEventListener("hashchange", () => { UI.route = ROUTES.includes(locatio
 
 let lastHtmlKey = "";
 function render(fromData = false) {
-  if (!S.uid) return;
+  if (!S.me) return;
   UI.deckKeys = null;
   if (!fromData) UI.dirty = false;
   const r = UI.route;
@@ -625,14 +626,19 @@ function renderPreview() {
 }
 
 /* ---------- Log in / sign up with an email code (simulated in this demo) ---------- */
-function setRole(role) {
-  S.role = role;
-  try { role ? localStorage.setItem("daliapply-role-" + S.uid, role) : localStorage.removeItem("daliapply-role-" + S.uid); } catch {}
+function setRole(role, acct) {
+  S.role = role; S.me = role ? (acct || S.me) : S.uid;
+  try {
+    role ? localStorage.setItem("daliapply-role-" + S.uid, role) : localStorage.removeItem("daliapply-role-" + S.uid);
+    role ? localStorage.setItem("daliapply-acct-" + S.uid, S.me) : localStorage.removeItem("daliapply-acct-" + S.uid);
+  } catch {}
 }
+// Demo: one claude.ai login can hold many test accounts, each found by its email.
+const accountByEmail = (side, email) => Object.entries(D[side === "seeker" ? "seekers" : "companies"]).find(([, x]) => (x.email || "").toLowerCase() === email);
 function logout() { setRole(null); UI.openJob = null; UI.openMatch = null; UI.seekerTab = "jobs"; go("home"); toast("You're logged out."); }
 function signupBox(app, side) {
-  const existing = side === "seeker" ? me() : myCompany();
-  const st = UI.signup[side] || (UI.signup[side] = { step: "email", mode: existing ? "login" : "signup" });
+  const hasOwn = !!D[side === "seeker" ? "seekers" : "companies"][S.uid];
+  const st = UI.signup[side] || (UI.signup[side] = { step: "email", mode: hasOwn ? "login" : "signup" });
   const isLogin = st.mode === "login";
   const title = isLogin ? (side === "seeker" ? "Job seeker log in" : "Company log in") : (side === "seeker" ? "Create your seeker account" : "Set up your company");
   if (st.step === "email") {
@@ -651,9 +657,10 @@ function signupBox(app, side) {
       e.preventDefault(); const email = $("#su-email").value.trim().toLowerCase(); const domain = email.split("@")[1] || "";
       const er = $("#su-err"); const fail = (m) => { er.innerHTML = m; er.hidden = false; };
       if (side === "company" && FREE_MAIL.includes(domain)) return fail(`${h(domain)} is a personal email provider. Use your company email, like hr@yourcompany.ph.`);
-      if (isLogin && (!existing || (existing.email || "").toLowerCase() !== email)) return fail(`We couldn't find a ${side === "seeker" ? "job seeker" : "company"} account for ${h(email)}. Check the email, or sign up.`);
-      if (!isLogin && existing) return fail(`You already have a ${side === "seeker" ? "job seeker" : "company"} account (${h(existing.email || existing.name)}). Log in instead.`);
-      Object.assign(st, { step: "code", email, name: side === "company" && !isLogin ? $("#su-name").value.trim() : "", code: String(100000 + Math.floor(Math.random() * 900000)) });
+      const found = accountByEmail(side, email);
+      if (isLogin && !found) return fail(`We couldn't find a ${side === "seeker" ? "job seeker" : "company"} account for ${h(email)}. Check the email, or sign up.`);
+      if (!isLogin && found) return fail(`There's already a ${side === "seeker" ? "job seeker" : "company"} account for ${h(email)}. Log in instead.`);
+      Object.assign(st, { step: "code", email, acct: found ? found[0] : null, name: side === "company" && !isLogin ? $("#su-name").value.trim() : "", code: String(100000 + Math.floor(Math.random() * 900000)) });
       render();
     };
   } else {
@@ -669,9 +676,11 @@ function signupBox(app, side) {
       e.preventDefault();
       if ($("#su-code").value.trim() !== st.code) { const er = $("#su-err"); er.textContent = "That code doesn't match. Check the email and try again."; er.hidden = false; return; }
       const login = st.mode === "login";
-      if (!login && side === "company") await put("companies", S.uid, { name: st.name, domain: st.email.split("@")[1], email: st.email, verifiedDomain: true, createdAt: now() });
-      else if (!login) await put("seekers", S.uid, { email: st.email, emailVerified: true, verification: "unverified", confirmed: false, createdAt: now() });
-      delete UI.signup[side]; setRole(side); render();
+      const col = side === "seeker" ? "seekers" : "companies";
+      const acct = login ? st.acct : (D[col][S.uid] ? "acct-" + newId() : S.uid);
+      if (!login && side === "company") await put("companies", acct, { name: st.name, domain: st.email.split("@")[1], email: st.email, verifiedDomain: true, createdAt: now() });
+      else if (!login) await put("seekers", acct, { email: st.email, emailVerified: true, verification: "unverified", confirmed: false, createdAt: now() });
+      delete UI.signup[side]; setRole(side, acct); render();
       toast(login ? "Welcome back." : "Your account is ready.");
     };
   }
@@ -688,7 +697,7 @@ function viewSeeker(app) {
   const box = $("#sv");
   if (UI.seekerTab === "verify") return seekerVerify(box, s);
   const feed = seekerFeed();
-  const left = CFG.dailyRightSwipes - rightSwipesToday(S.uid);
+  const left = CFG.dailyRightSwipes - rightSwipesToday(S.me);
   box.innerHTML = `<div class="stack">
     ${s.verification !== "verified" ? `<div class="notice gold"><span>${s.verification === "pending" ? "Your ID is being reviewed. Once approved, companies see a Verified badge on your card." : "Verify your ID to get a Verified badge. Companies see it on your card."}</span>${s.verification === "pending" ? "" : `<button class="btn small" id="go-verify">Verify now</button>`}</div>` : ""}
     <p class="small muted" style="text-align:center">${feed.length} job${feed.length === 1 ? "" : "s"} for you · ${left} right swipes left today</p>
@@ -703,7 +712,7 @@ function viewSeeker(app) {
     const hide = $(".card.top [data-hide]");
     if (hide) hide.onclick = async () => {
       UI.menuFor = null;
-      await put("hidden", `${S.uid}_${top.companyId}`, { seekerId: S.uid, companyId: top.companyId, until: now() + CFG.hideCompanyDays * DAY });
+      await put("hidden", `${S.me}_${top.companyId}`, { seekerId: S.me, companyId: top.companyId, until: now() + CFG.hideCompanyDays * DAY });
       toast(`${top.companyName} is hidden for ${CFG.hideCompanyDays} days.`);
     };
   }
@@ -760,7 +769,7 @@ function seekerProfile(app, s) {
     const skills = v("skills").split("\n").map((l) => l.trim()).filter(Boolean).map((l) => {
       const m = l.match(/^(.+?)[\s:,-]+(\d+(?:\.\d+)?)\s*(?:yrs?|years?)?$/i); return { label: (m ? m[1] : l).trim(), years: m ? +m[2] : 0 };
     });
-    await put("seekers", S.uid, { ...s, first: v("first"), last: v("last"), headline: v("headline"), totalYears: +v("totalYears") || 0,
+    await put("seekers", S.me, { ...s, first: v("first"), last: v("last"), headline: v("headline"), totalYears: +v("totalYears") || 0,
       salaryMin: +v("salaryMin") || null, salaryMax: +v("salaryMax") || null, country: v("country").toUpperCase(),
       languages: v("languages").split(",").map((x) => x.trim().toLowerCase()).filter(Boolean), skills,
       remote: $("#p-remote").checked, relocate: $("#p-relocate").checked,
@@ -785,7 +794,7 @@ function seekerVerify(box, s) {
       <button class="btn">Submit for review</button></form>` : ""}</div>`;
   if ($("#vf")) $("#vf").onsubmit = async (e) => {
     e.preventDefault(); const f = $("#v-file").files[0];
-    await patch("seekers", S.uid, { verification: "pending", idType: $("#v-type").value, idFile: f ? f.name : "", idSubmittedAt: now() });
+    await patch("seekers", S.me, { verification: "pending", idType: $("#v-type").value, idFile: f ? f.name : "", idSubmittedAt: now() });
     toast("ID submitted for review.");
   };
 }
@@ -795,7 +804,7 @@ function viewCompany(app) {
   if (!c || S.role !== "company") return signupBox(app, "company");
   if (UI.openJob && D.jobs[UI.openJob]) return companyJob(app, c, UI.openJob);
   if (UI.companyTab === "new") return companyNewJob(app, c);
-  const jobs = Object.entries(D.jobs).filter(([, j]) => j.companyId === S.uid).sort((a, b) => b[1].createdAt - a[1].createdAt);
+  const jobs = Object.entries(D.jobs).filter(([, j]) => j.companyId === S.me).sort((a, b) => b[1].createdAt - a[1].createdAt);
   app.innerHTML = `<div class="stack">
     <div class="row" style="justify-content:space-between"><div><p class="small muted">${h(c.domain)} · verified domain</p><h2 style="font-size:30px">${h(c.name)}</h2></div>
       <button class="btn" id="new-job">Post a job · $${CFG.postPriceUsd}</button></div>
@@ -820,7 +829,7 @@ function companyNewJob(app, c) {
   $("#jf").onsubmit = async (e) => {
     e.preventDefault(); const v = (k) => $("#j-" + k).value.trim(); const id = newId();
     const skills = v("skills").split("\n").map((l) => l.trim()).filter(Boolean).map((l) => { const m = l.match(/^(.+?)[\s:,-]+(\d+(?:\.\d+)?)\s*(?:yrs?|years?)?$/i); return { label: (m ? m[1] : l).trim(), min: m ? +m[2] : 0 }; });
-    await put("jobs", id, { companyId: S.uid, companyName: c.name, title: v("title"), description: v("desc"), skills, salaryMin: +v("min") || null, salaryMax: +v("max") || null,
+    await put("jobs", id, { companyId: S.me, companyName: c.name, title: v("title"), description: v("desc"), skills, salaryMin: +v("min") || null, salaryMax: +v("max") || null,
       country: v("country").toUpperCase(), languages: v("langs").split(",").map((x) => x.trim().toLowerCase()).filter(Boolean), remote: $("#j-remote").checked, relocation: $("#j-reloc").checked, paid: false, createdAt: now() });
     UI.companyTab = "jobs"; UI.openJob = id; render();
   };
@@ -871,14 +880,14 @@ const clock = (t) => new Date(t).toLocaleTimeString("en-PH", { hour: "numeric", 
 const stamp = (t) => `${dayLabel(t)}, ${clock(t)}`;
 /* Which side wrote a message. One account can hold both a seeker and a company profile,
    so the side is stored on each message; older messages fall back to the account id. */
-function isMine(x) { return x.fromSide ? x.fromSide === S.role : x.from === S.uid; }
+function isMine(x) { return x.fromSide ? x.fromSide === S.role : x.from === S.me; }
 function lastMessage(matchId) {
   let last = null; for (const x of Object.values(D.messages)) if (x.matchId === matchId && (!last || x.at > last.at)) last = x;
   return last;
 }
 function myMatches() {
   return Object.entries(D.matches).map(([id, m]) => ({ id, ...m, job: D.jobs[m.jobId] || {} }))
-    .filter((m) => (S.role === "seeker" ? m.seekerId === S.uid : m.job.companyId === S.uid)).sort((a, b) => b.at - a.at);
+    .filter((m) => (S.role === "seeker" ? m.seekerId === S.me : m.job.companyId === S.me)).sort((a, b) => b.at - a.at);
 }
 function viewMatches(app) {
   if (UI.openMatch && D.matches[UI.openMatch]) return matchChat(app, UI.openMatch);
@@ -913,7 +922,7 @@ function matchChat(app, id) {
   $("#send").onsubmit = async (e) => {
     e.preventDefault(); const body = $("#msg-in").value.trim(); if (!body) return;
     $("#msg-in").value = ""; $("#msg-in").blur();
-    await put("messages", newId(), { matchId: id, from: S.uid, fromSide: S.role, body, at: now() });
+    await put("messages", newId(), { matchId: id, from: S.me, fromSide: S.role, body, at: now() });
     $("#msg-in")?.focus();
   };
 }
