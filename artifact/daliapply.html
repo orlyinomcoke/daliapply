@@ -1,0 +1,929 @@
+<title>Daliapply</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;500;600;700&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+/* Layout: one narrow app column (max 980px), a top bar, and a swipe deck centred in each side's view. */
+:root {
+  --bg: #f4f5f9;
+  --surface: #ffffff;
+  --ink: #161a33;
+  --muted: #5e6382;
+  --line: #e1e3ee;
+  --accent: #ffb000;        /* mango: matches, highlights */
+  --accent-ink: #3a2700;
+  --primary: #1f2a7a;       /* deep jeepney blue: main actions */
+  --primary-ink: #ffffff;
+  --soft: #eceefb;
+  --yes: #12805c;
+  --yes-soft: #dcf3ea;
+  --no: #c8323f;
+  --no-soft: #fbe3e5;
+  --display: "Bricolage Grotesque", "Trebuchet MS", system-ui, sans-serif;
+  --body: "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --radius: 18px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1124; --surface: #191c35; --ink: #eef0fb; --muted: #a2a6c4; --line: #2b2f52;
+    --accent: #ffbf33; --accent-ink: #2a1c00; --primary: #8d9cff; --primary-ink: #0f1124; --soft: #23274a;
+    --yes: #49d19f; --yes-soft: #12392c; --no: #ff7a85; --no-soft: #43181d; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1124; --surface: #191c35; --ink: #eef0fb; --muted: #a2a6c4; --line: #2b2f52;
+  --accent: #ffbf33; --accent-ink: #2a1c00; --primary: #8d9cff; --primary-ink: #0f1124; --soft: #23274a;
+  --yes: #49d19f; --yes-soft: #12392c; --no: #ff7a85; --no-soft: #43181d; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 15px; line-height: 1.5; }
+h1, h2, h3 { font-family: var(--display); line-height: 1.1; text-wrap: balance; margin: 0; letter-spacing: -0.01em; }
+p { margin: 0; }
+button, input, select, textarea { font: inherit; color: inherit; }
+a { color: var(--primary); }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+.wrap { max-width: 980px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+header.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); }
+header.top .wrap { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-block: 12px; }
+.logo { white-space: nowrap; font-family: var(--display); font-weight: 800; font-size: 22px; text-decoration: none; color: var(--ink); letter-spacing: -0.02em; }
+.logo span { color: var(--primary); }
+.logo i { font-style: normal; display: inline-block; width: 8px; height: 8px; background: var(--accent); border-radius: 50%; margin-left: 2px; vertical-align: super; }
+.toplinks { display: flex; gap: 4px; flex-wrap: wrap; }
+.toplinks a { text-decoration: none; color: var(--ink); font-weight: 600; padding: 6px 10px; border-radius: 999px; font-size: 14px; }
+.toplinks a[aria-current="page"] { background: var(--soft); }
+@media (max-width: 480px) { .toplinks { gap: 0; justify-content: flex-end; } .toplinks a { padding: 5px 7px; font-size: 13px; } .logo { font-size: 19px; } }
+main { padding-block: 28px 64px; }
+
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: 0; border-radius: 999px; padding: 10px 18px; font-weight: 700; cursor: pointer; background: var(--primary); color: var(--primary-ink); }
+.btn:disabled { opacity: .5; cursor: default; }
+.btn.ghost { background: transparent; color: var(--ink); border: 1.5px solid var(--line); }
+.btn.ghost:hover { background: var(--soft); }
+.btn.small { padding: 6px 12px; font-size: 13px; }
+.btn.accent { background: var(--accent); color: var(--accent-ink); }
+.row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.stack { display: grid; gap: 14px; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px; }
+.muted { color: var(--muted); }
+.small { font-size: 13px; }
+.chip { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 999px; background: var(--soft); font-size: 12.5px; font-weight: 600; white-space: nowrap; }
+.chip.yes { background: var(--yes-soft); color: var(--yes); }
+.chip.no { background: var(--no-soft); color: var(--no); }
+.chip.gold { background: var(--accent); color: var(--accent-ink); }
+button.chip { border: 0; cursor: pointer; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+label.f { display: grid; gap: 4px; font-size: 13px; font-weight: 600; min-width: 0; }
+.in { width: 100%; padding: 10px 12px; border-radius: 12px; border: 1.5px solid var(--line); background: var(--surface); font-weight: 400; font-size: 15px; }
+.in:focus { border-color: var(--primary); outline: none; }
+textarea.in { resize: vertical; }
+.grid2 { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+.tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 18px; }
+.tabs button { border: 1.5px solid var(--line); background: transparent; border-radius: 999px; padding: 7px 14px; font-weight: 700; cursor: pointer; }
+.tabs button[aria-selected="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.notice { border-radius: 14px; padding: 12px 14px; background: var(--soft); font-size: 14px; display: flex; gap: 12px; flex-wrap: wrap; align-items: center; justify-content: space-between; }
+.notice.gold { background: color-mix(in srgb, var(--accent) 22%, var(--surface)); }
+.err { color: var(--no); font-size: 13.5px; font-weight: 600; }
+.tag-sample { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); border: 1px dashed var(--line); border-radius: 6px; padding: 1px 6px; }
+
+/* Landing */
+.hero { display: grid; gap: 28px; justify-items: center; text-align: center; padding-block: 40px 20px; }
+.hero h1 { font-size: clamp(34px, 6vw, 60px); font-weight: 800; max-width: 14ch; }
+.hero h1 em { font-style: normal; background: linear-gradient(transparent 62%, var(--accent) 62% 92%, transparent 92%); }
+.hero .lede { color: var(--muted); max-width: 52ch; font-size: 17px; }
+.toggle { position: relative; display: grid; grid-template-columns: 1fr 1fr; padding: 4px; background: var(--surface); border: 1.5px solid var(--line); border-radius: 999px; }
+.toggle .knob { position: absolute; inset: 4px auto 4px 4px; width: calc(50% - 4px); background: var(--primary); border-radius: 999px; transition: transform .3s cubic-bezier(.3,.7,.3,1); }
+.toggle[data-side="company"] .knob { transform: translateX(100%); }
+.toggle button { position: relative; z-index: 1; border: 0; background: none; padding: 9px 18px; font-weight: 700; cursor: pointer; border-radius: 999px; transition: color .3s; }
+.toggle button[aria-pressed="true"] { color: var(--primary-ink); }
+.bigsearch { width: min(680px, 100%); }
+.bigsearch input { width: 100%; padding: 20px 22px; font-size: 18px; border-radius: 20px; border: 2px solid var(--line); background: var(--surface); box-shadow: 0 8px 30px -18px rgba(20,25,60,.35); }
+.bigsearch input:focus { outline: none; border-color: var(--primary); }
+.promises { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); margin-top: 30px; }
+.promises div { padding: 16px; border-top: 3px solid var(--ink); }
+.promises b { font-family: var(--display); font-size: 17px; display: block; margin-bottom: 4px; }
+
+/* Deck */
+.deckwrap { display: grid; gap: 14px; justify-items: center; }
+.deck { position: relative; width: min(420px, 100%); height: 520px; }
+.card { position: absolute; inset: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 24px; padding: 22px; display: flex; flex-direction: column; gap: 12px; overflow: hidden; touch-action: none; user-select: none; box-shadow: 0 18px 40px -26px rgba(20,25,60,.45); }
+.card.under { transform: scale(.955) translateY(12px); opacity: .65; pointer-events: none; }
+.card .body { overflow-y: auto; display: flex; flex-direction: column; gap: 12px; min-height: 0; flex: 1; }
+.card .stamp { position: absolute; top: 22px; padding: 4px 10px; border: 3px solid; border-radius: 8px; font-family: var(--display); font-weight: 800; font-size: 20px; text-transform: uppercase; opacity: 0; transform: rotate(-12deg); pointer-events: none; }
+.card .stamp.yes { left: 18px; color: var(--yes); }
+.card .stamp.no { right: 18px; color: var(--no); transform: rotate(12deg); }
+.masked { font-family: var(--display); font-weight: 800; font-size: 30px; letter-spacing: .08em; }
+.why { margin-top: auto; background: var(--bg); border-radius: 14px; padding: 10px 12px; font-size: 13.5px; }
+.why b { display: block; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-bottom: 2px; }
+.logo-tile { width: 48px; height: 48px; border-radius: 14px; display: grid; place-items: center; font-family: var(--display); font-weight: 800; font-size: 22px; background: var(--accent); color: var(--accent-ink); flex: none; }
+.swipebtns { display: flex; gap: 22px; }
+.swipebtns button { width: 64px; height: 64px; border-radius: 50%; border: 0; cursor: pointer; font-size: 26px; font-weight: 800; display: grid; place-items: center; }
+.swipebtns .nope { background: var(--no-soft); color: var(--no); }
+.swipebtns .like { background: var(--yes-soft); color: var(--yes); }
+.menu { position: absolute; right: 16px; top: 56px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 4px; box-shadow: 0 12px 30px -14px rgba(0,0,0,.35); z-index: 3; }
+.menu button { display: block; width: 100%; text-align: left; border: 0; background: none; padding: 8px 12px; border-radius: 8px; cursor: pointer; }
+.menu button:hover { background: var(--soft); }
+.emptydeck { width: min(420px, 100%); text-align: center; padding: 40px 20px; }
+
+/* Lists, chat */
+.list { display: grid; gap: 10px; }
+.item { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 14px 16px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; cursor: pointer; text-align: left; width: 100%; }
+.item:hover { border-color: var(--primary); }
+.item > div { min-width: 0; }
+.split { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr); }
+@media (max-width: 720px) { .split { grid-template-columns: 1fr; } }
+.chat { display: flex; flex-direction: column; min-height: 420px; }
+.msgs { flex: 1; display: flex; flex-direction: column; gap: 8px; overflow-y: auto; max-height: 420px; padding-bottom: 8px; }
+.msg { max-width: 80%; padding: 8px 12px; border-radius: 16px; background: var(--bg); font-size: 14px; overflow-wrap: anywhere; }
+.msg.me { margin-left: auto; background: var(--primary); color: var(--primary-ink); }
+pre.resume { white-space: pre-wrap; font-family: var(--body); font-size: 12.5px; max-height: 280px; overflow: auto; background: var(--bg); padding: 12px; border-radius: 12px; margin: 0; }
+.big-num { font-family: var(--display); font-weight: 800; font-size: 40px; font-variant-numeric: tabular-nums; }
+.meter { height: 8px; border-radius: 99px; background: var(--soft); overflow: hidden; }
+.meter i { display: block; height: 100%; background: var(--accent); }
+.toast { position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 999px; font-weight: 600; z-index: 20; max-width: calc(100% - 32px); text-align: center; }
+.matchpop { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; background: color-mix(in srgb, var(--ink) 60%, transparent); padding: 16px; }
+.matchpop .panel { text-align: center; max-width: 360px; display: grid; gap: 12px; }
+.matchpop h2 { font-size: 40px; color: var(--primary); }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+
+<header class="top">
+  <div class="wrap">
+    <a class="logo" href="#home">dali<span>apply</span><i></i></a>
+    <nav class="toplinks" id="toplinks"></nav>
+  </div>
+</header>
+<main class="wrap" id="app"><p class="muted">Loading Daliapply…</p></main>
+<div id="overlay"></div>
+
+<script>
+"use strict";
+/* ============================================================
+   Settings (from the product plan)
+   ============================================================ */
+const CFG = {
+  dailyRightSwipes: 25,
+  paidSwipesPerPost: 30,
+  rewardPhp: 20,
+  postPriceUsd: 40,
+  hideCompanyDays: 30,
+  minCashout: 200,
+};
+const FREE_MAIL = ["gmail.com","yahoo.com","yahoo.com.ph","outlook.com","hotmail.com","live.com","icloud.com","proton.me","protonmail.com","aol.com","gmx.com","mail.com","ymail.com"];
+const COLLECTIONS = ["seekers","companies","jobs","swipes","hidden","matches","messages","rewards","payouts"];
+
+/* ============================================================
+   Rule-based resume reader and search parser (no AI, no cost)
+   ============================================================ */
+const SKILLS = {
+  PHP: [], Laravel: [], Symfony: [], CodeIgniter: [], WordPress: ["wp"],
+  JavaScript: ["js","ecmascript"], TypeScript: ["ts"], "Node.js": ["node","nodejs"],
+  React: ["react.js","reactjs"], "Next.js": ["nextjs"], Vue: ["vue.js","vuejs"], Angular: ["angularjs"],
+  "React Native": [], Flutter: [], Dart: [], Swift: [], Kotlin: [], Java: [], "Spring Boot": ["spring"],
+  Python: [], Django: [], Flask: [], FastAPI: [], Ruby: [], Rails: ["ruby on rails"], Go: ["golang"],
+  Rust: [], "C#": ["c sharp"], ".NET": ["dotnet","asp.net"], "C++": ["cpp"],
+  HTML: ["html5"], CSS: ["css3"], Tailwind: ["tailwindcss"], Sass: ["scss"],
+  SQL: [], MySQL: [], PostgreSQL: ["postgres"], MongoDB: ["mongo"], Redis: [], Firebase: [], Supabase: [],
+  GraphQL: [], "REST API": ["rest","restful","rest apis"],
+  AWS: ["amazon web services"], Azure: [], GCP: ["google cloud"], Docker: [], Kubernetes: ["k8s"],
+  Linux: [], Git: ["github","gitlab"], "CI/CD": ["ci cd","jenkins","github actions"], DevOps: [], Terraform: [],
+  Selenium: [], Cypress: [], Playwright: [], Jest: [], QA: ["quality assurance","software testing","manual testing"],
+  "UI/UX": ["ui design","ux design","user experience","ux"], Figma: [], Photoshop: [], Illustrator: [],
+  "Data Analysis": ["data analytics"], Excel: ["ms excel","microsoft excel"], "Power BI": ["powerbi"], Tableau: [],
+  "Machine Learning": ["ml"], SEO: [], "Digital Marketing": [], "Social Media": ["social media marketing"],
+  "Customer Service": ["customer support","call center","bpo"], Sales: [], Accounting: ["bookkeeping"],
+  "Virtual Assistant": ["virtual assistance"], Copywriting: ["content writing"],
+  "Project Management": [], Management: ["team lead","team leader","leadership","people management","managed a team","led a team"],
+  Agile: ["scrum","kanban"], Jira: [], Salesforce: [], Shopify: [],
+};
+const LANGS = ["english","filipino","tagalog","cebuano","bisaya","ilocano","spanish","japanese","korean","mandarin","chinese","cantonese","french","german","arabic","hindi","indonesian","malay","vietnamese","thai","portuguese","italian","russian"];
+const COUNTRIES = { philippines:"PH", manila:"PH", "metro manila":"PH", cebu:"PH", davao:"PH", "quezon city":"PH", makati:"PH", taguig:"PH", pasig:"PH", bgc:"PH", singapore:"SG", "united states":"US", usa:"US", "united kingdom":"GB", uk:"GB", australia:"AU", canada:"CA", japan:"JP", "hong kong":"HK", "united arab emirates":"AE", dubai:"AE", "saudi arabia":"SA", malaysia:"MY", indonesia:"ID", vietnam:"VN", thailand:"TH", india:"IN" };
+const ROLES = ["programmer","developer","engineer","designer","analyst","tester","qa","manager","lead","architect","administrator","assistant","accountant","writer","marketer","specialist","consultant","agent","representative","scientist","devops"];
+const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const SKILL_RE = Object.entries(SKILLS).map(([label, aliases]) => {
+  const names = [label, ...aliases].map((n) => esc(n.toLowerCase())).sort((a, b) => b.length - a.length);
+  return [label, new RegExp(`(?<![a-z0-9+#.])(?:${names.join("|")})(?![a-z0-9+#])`, "i")];
+});
+const skillRe = (label) => (SKILL_RE.find(([l]) => l === label) || [])[1];
+function findSkills(t) { return SKILL_RE.filter(([, re]) => re.test(t)).map(([l]) => l); }
+function findLangs(t) {
+  t = t.toLowerCase();
+  return [...new Set(LANGS.filter((l) => new RegExp(`\\b${l}\\b`).test(t)).map((l) => (l === "tagalog" ? "filipino" : l)))];
+}
+function findCountry(t) {
+  t = t.toLowerCase(); let best = null;
+  for (const [n, c] of Object.entries(COUNTRIES)) { const at = t.search(new RegExp(`\\b${esc(n)}\\b`)); if (at >= 0 && (!best || at < best.at)) best = { c, at }; }
+  return best ? best.c : "";
+}
+const MONTHS = { jan:0, feb:1, mar:2, apr:3, may:4, jun:5, jul:6, aug:7, sep:8, sept:8, oct:9, nov:10, dec:11 };
+const MONTH = "(jan|feb|mar|apr|may|jun|jul|aug|sept?|oct|nov|dec)[a-z]*\\.?";
+const POINT = `(?:${MONTH}\\s*)?((?:19|20)\\d{2})|(?:(\\d{1,2})/((?:19|20)\\d{2}))`;
+const RANGE = new RegExp(`(?:${POINT})\\s*(?:-|–|—|to|until)\\s*(?:(present|current|now|to date)|(?:${POINT}))`, "gi");
+function rangeOf(m, now) {
+  const start = m[2] ? +m[2] + (m[1] ? MONTHS[m[1].slice(0,3).toLowerCase()] : 0) / 12 : +m[4] + (+m[3] - 1) / 12;
+  let end;
+  if (m[5]) end = now.getFullYear() + now.getMonth() / 12;
+  else if (m[7]) end = +m[7] + (m[6] ? MONTHS[m[6].slice(0,3).toLowerCase()] : 11) / 12;
+  else end = +m[9] + (+m[8] - 1) / 12;
+  return end > start ? { start, end } : null;
+}
+function blocksOf(text, now) {
+  const ms = [...text.matchAll(RANGE)]; const out = [];
+  ms.forEach((m, i) => {
+    const r = rangeOf(m, now); if (!r) return;
+    const from = m.index, to = i + 1 < ms.length ? ms[i + 1].index : Math.min(text.length, from + 2500);
+    const ls = text.lastIndexOf("\n", from - 1), pls = text.lastIndexOf("\n", ls - 1);
+    const same = text.slice(ls + 1, from).replace(/[|,–—-]+\s*$/, "").trim(), prev = text.slice(pls + 1, ls).trim();
+    out.push({ ...r, text: text.slice(Math.max(0, pls), to), title: (same.length > 2 ? same : prev).slice(0, 80) });
+  });
+  return out;
+}
+function mergedYears(bs) {
+  const s = [...bs].sort((a, b) => a.start - b.start); let total = 0, cs = -1, ce = -1;
+  for (const b of s) { if (b.start > ce) { if (ce > cs) total += ce - cs; cs = b.start; ce = b.end; } else ce = Math.max(ce, b.end); }
+  if (ce > cs) total += ce - cs; return total;
+}
+const half = (n) => Math.round(n * 2) / 2;
+function stripContacts(t) {
+  return t.replace(/[\w.+-]+@[\w-]+\.[\w.-]+/g, "[email hidden]")
+    .replace(/(?:\+?63|0)\s*9\d{2}[\s-]?\d{3}[\s-]?\d{4}/g, "[phone hidden]")
+    .replace(/\+?\d[\d\s().-]{8,}\d/g, "[phone hidden]");
+}
+function readResume(raw, now = new Date()) {
+  const text = raw.replace(/\r/g, "").replace(/[ \t]+/g, " ");
+  const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
+  const bs = blocksOf(text, now);
+  const skills = findSkills(text).map((label) => ({ label, years: half(mergedYears(bs.filter((b) => skillRe(label).test(b.text)))) }))
+    .sort((a, b) => b.years - a.years);
+  let first = "", last = "";
+  for (const line of lines.slice(0, 8)) {
+    const clean = line.replace(/[^A-Za-zÀ-ÿñÑ .'-]/g, "").trim(); const w = clean.split(/\s+/).filter(Boolean);
+    if (w.length >= 2 && w.length <= 5 && !/resume|curriculum|vitae|profile|contact/i.test(clean) && w.every((x) => /^[A-ZÀ-ÿÑ]/.test(x) || x.length <= 3)) {
+      const p = w.map((x) => x[0] + x.slice(1).toLowerCase()); first = p.slice(0, -1).join(" "); last = p[p.length - 1]; break;
+    }
+  }
+  const roleRe = new RegExp(`\\b(${ROLES.join("|")})\\b`, "i");
+  const headline = lines.slice(1, 6).find((l) => roleRe.test(l) && l.length < 60) || ([...bs].sort((a, b) => b.end - a.end)[0] || {}).title || "";
+  const sal = text.toLowerCase().replace(/,/g, "").match(/(?:expected|desired|asking)\s*(?:monthly\s*)?salary[^0-9]{0,20}(\d+(?:\.\d+)?)\s*(k)?(?:\s*(?:-|–|to)\s*(?:php|₱|p)?\s*(\d+(?:\.\d+)?)\s*(k)?)?/);
+  const v = (n, k) => (n ? Math.round(+n * (k ? 1000 : 1)) : "");
+  return {
+    first, last, headline, totalYears: half(mergedYears(bs)), skills,
+    recentRoles: [...bs].sort((a, b) => b.end - a.end).slice(0, 4).map((b) => ({ title: b.title, years: half(b.end - b.start) })),
+    salaryMin: sal ? v(sal[1], sal[2]) : "", salaryMax: sal ? (v(sal[3], sal[4]) || v(sal[1], sal[2])) : "",
+    country: findCountry(text) || "PH", languages: findLangs(text), resumeText: stripContacts(text).trim(),
+  };
+}
+function parseSearch(query) {
+  const q = query.toLowerCase(); const found = findSkills(q);
+  const nums = [...q.matchAll(/(\d+(?:\.\d+)?)\s*\+?\s*(?:years?|yrs?)/g)].map((m) => ({ n: +m[1], at: m.index }));
+  const skills = found.map((label) => {
+    if (!nums.length) return { label, min: 0 };
+    if (nums.length === 1) return { label, min: nums[0].n };
+    const p = q.search(skillRe(label));
+    return { label, min: nums.reduce((a, b) => (Math.abs(b.at - p) < Math.abs(a.at - p) ? b : a)).n };
+  });
+  const role = (q.match(new RegExp(`\\b(${ROLES.join("|")})s?\\b`, "i")) || [])[1] || null;
+  const sal = q.replace(/,/g, "").match(/(\d+(?:\.\d+)?)\s*(k)\s*\+?|(?:php|₱)\s*(\d{4,})/);
+  return {
+    role, skills, country: findCountry(q) || null, remote: /\bremote\b|work from home|\bwfh\b/.test(q) || null,
+    salaryMin: sal ? Math.round(+(sal[1] || sal[3]) * (sal[2] ? 1000 : 1)) : null, languages: findLangs(q),
+  };
+}
+async function pdfText(file) {
+  if (!window.pdfjsLib) throw new Error("The PDF reader didn't load. Paste your resume text instead.");
+  pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+  const doc = await pdfjsLib.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;
+  let out = "";
+  for (let i = 1; i <= doc.numPages; i++) {
+    const c = await (await doc.getPage(i)).getTextContent();
+    for (const it of c.items) out += it.str + (it.hasEOL ? "\n" : " ");
+    out += "\n";
+  }
+  return out;
+}
+
+/* ============================================================
+   Store: shared database when available, this browser otherwise
+   ============================================================ */
+const S = { uid: null, isOwner: false, shared: false, ready: false };
+const D = Object.fromEntries(COLLECTIONS.map((c) => [c, {}]));
+let db = null;
+const local = {
+  key: "daliapply-local-v1",
+  load() { try { const v = JSON.parse(localStorage.getItem(this.key) || "{}"); for (const c of COLLECTIONS) D[c] = v[c] || {}; } catch {} },
+  save() { try { localStorage.setItem(this.key, JSON.stringify(D)); } catch {} },
+};
+async function put(coll, id, data) {
+  D[coll][id] = data; render();
+  if (db) await db.collection(coll).doc(id).set(data); else local.save();
+}
+async function patch(coll, id, data) {
+  D[coll][id] = { ...(D[coll][id] || {}), ...data }; render();
+  if (db) await db.collection(coll).doc(id).update(data); else local.save();
+}
+async function del(coll, id) {
+  delete D[coll][id]; render();
+  if (db) await db.collection(coll).doc(id).delete(); else local.save();
+}
+const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+
+async function boot() {
+  try {
+    const [dbNs, userNs] = await Promise.all([window.claude?.use?.("db") ?? null, window.claude?.use?.("user") ?? null]);
+    db = dbNs;
+    if (userNs) { S.uid = await userNs.id().catch(() => null); S.isOwner = await Promise.resolve(userNs.isOwner()).catch(() => false); }
+  } catch { db = null; }
+  if (!S.uid) {
+    try { S.uid = localStorage.getItem("daliapply-uid"); } catch {}
+    if (!S.uid) { S.uid = "me-" + newId(); try { localStorage.setItem("daliapply-uid", S.uid); } catch {} }
+    S.isOwner = true;
+  }
+  if (db) {
+    S.shared = true;
+    let pending = COLLECTIONS.length;
+    for (const c of COLLECTIONS) {
+      db.collection(c).onSnapshot((snap) => {
+        const m = {}; snap.docs.forEach((d) => (m[d.id] = d.data())); D[c] = m;
+        if (pending > 0 && --pending === 0) S.ready = true;
+        render(true);
+      }, () => { if (pending > 0 && --pending === 0) S.ready = true; render(true); });
+    }
+  } else { local.load(); S.ready = true; render(); }
+}
+
+/* ============================================================
+   Domain helpers: matching, hiding, rewards
+   ============================================================ */
+const now = () => Date.now();
+const DAY = 86400000;
+const php = (n) => "PHP " + Number(n || 0).toLocaleString("en-PH");
+const me = () => D.seekers[S.uid];
+const myCompany = () => D.companies[S.uid];
+const swipeId = (side, seekerId, jobId) => `${side}_${seekerId}_${jobId}`;
+const matchId = (jobId, seekerId) => `${jobId}_${seekerId}`;
+const sw = (side, seekerId, jobId) => D.swipes[swipeId(side, seekerId, jobId)];
+function mask(first, last) {
+  const m = (s) => (s ? s[0].toUpperCase() + "*".repeat(Math.max(3, s.length - 1)) : "");
+  return [m(first), m(last)].filter(Boolean).join(" ") || "A*** ****";
+}
+function overlap(aMin, aMax, bMin, bMax) {
+  return (+aMin || 0) <= (+bMax || Infinity) && (+bMin || 0) <= (+aMax || Infinity);
+}
+function passes(s, j) {
+  if (!overlap(s.salaryMin, s.salaryMax, j.salaryMin, j.salaryMax)) return false;
+  const placeOk = (j.remote && s.remote !== false) || (s.country || "") === (j.country || "") || (s.relocate && j.relocation);
+  if (!placeOk) return false;
+  return (j.languages || []).every((l) => (s.languages || []).includes(l));
+}
+function yearsFor(s, label) { const k = (s.skills || []).find((x) => x.label.toLowerCase() === label.toLowerCase()); return k ? +k.years : 0; }
+function score(s, j) {
+  const req = j.skills || []; if (!req.length) return 1;
+  return req.reduce((sum, r) => sum + Math.min(yearsFor(s, r.label) / Math.max(+r.min || 0.5, 0.5), 1), 0) / req.length;
+}
+function whyLine(s, j) {
+  const parts = (j.skills || []).map((r) => { const y = yearsFor(s, r.label); return `${r.label} ${y} yrs ${y >= +r.min ? "✓" : "~"}`; });
+  if (overlap(s.salaryMin, s.salaryMax, j.salaryMin, j.salaryMax)) parts.push("Salary in range ✓");
+  return parts.join(" · ");
+}
+// "programmer" should find developers and engineers too
+const ROLE_GROUPS = [["programmer","developer","engineer","coder","dev"], ["designer","ui","ux"], ["tester","qa"], ["manager","lead","head","supervisor"], ["assistant","va"], ["analyst","scientist"], ["writer","copywriter"], ["agent","representative","specialist"]];
+function roleMatches(headline, role) {
+  if (!role) return true; const hl = (headline || "").toLowerCase();
+  const group = ROLE_GROUPS.find((g) => g.includes(role)) || [role];
+  return group.some((w) => new RegExp(`\\b${w}`).test(hl));
+}
+function isHidden(seekerId, companyId) { const h = D.hidden[`${seekerId}_${companyId}`]; return h && h.until > now(); }
+function rightSwipesToday(seekerId) {
+  return Object.values(D.swipes).filter((x) => x.side === "seeker" && x.seekerId === seekerId && x.dir === "right" && x.at > now() - DAY).length;
+}
+function balanceOf(seekerId) {
+  const earned = Object.values(D.rewards).filter((r) => r.seekerId === seekerId).reduce((a, r) => a + r.amount, 0);
+  const out = Object.values(D.payouts).filter((p) => p.seekerId === seekerId && p.status !== "rejected").reduce((a, p) => a + p.amount, 0);
+  return earned - out;
+}
+function rewardUsed(jobId) { return Object.values(D.rewards).filter((r) => r.jobId === jobId).length; }
+function seekerFeed() {
+  const s = me(); if (!s) return [];
+  return Object.entries(D.jobs).map(([id, j]) => ({ id, ...j }))
+    .filter((j) => j.paid && !sw("seeker", S.uid, j.id))
+    .filter((j) => (sw("company", S.uid, j.id) || {}).dir !== "left")
+    .filter((j) => !isHidden(S.uid, j.companyId))
+    .filter((j) => passes(s, j))
+    .sort((a, b) => score(s, b) - score(s, a) || (b.createdAt || 0) - (a.createdAt || 0));
+}
+function candidates(jobId, filters) {
+  const j = D.jobs[jobId]; if (!j) return [];
+  return Object.entries(D.seekers).map(([id, s]) => ({ id, ...s }))
+    .filter((s) => s.confirmed)
+    .filter((s) => !sw("company", s.id, jobId))
+    .filter((s) => (sw("seeker", s.id, jobId) || {}).dir !== "left")
+    .filter((s) => !isHidden(s.id, j.companyId))
+    .filter((s) => passes(s, j))
+    .filter((s) => roleMatches(s.headline, filters.role))
+    .filter((s) => filters.skills.every((k) => (s.skills || []).some((x) => x.label.toLowerCase() === k.label.toLowerCase())))
+    .map((s) => ({ ...s, _score: score(s, j) + (filters.skills.length ? filters.skills.reduce((a, k) => a + Math.min(yearsFor(s, k.label) / Math.max(k.min, 0.5), 1), 0) / filters.skills.length : 0) }))
+    .sort((a, b) => b._score - a._score);
+}
+
+async function maybeMatch(jobId, seekerId) {
+  if ((sw("seeker", seekerId, jobId) || {}).dir === "right" && (sw("company", seekerId, jobId) || {}).dir === "right" && !D.matches[matchId(jobId, seekerId)]) {
+    await put("matches", matchId(jobId, seekerId), { jobId, seekerId, at: now() });
+    const j = D.jobs[jobId];
+    if (seekerId === S.uid || (j && j.companyId === S.uid)) showMatch(jobId, seekerId);
+  }
+}
+async function companyRight(jobId, seekerId) {
+  await put("swipes", swipeId("company", seekerId, jobId), { side: "company", seekerId, jobId, dir: "right", at: now() });
+  const s = D.seekers[seekerId], j = D.jobs[jobId];
+  const rid = `${seekerId}_${jobId}`;
+  if (s && s.verification === "verified" && j && j.paid && rewardUsed(jobId) < CFG.paidSwipesPerPost && !D.rewards[rid]) {
+    await put("rewards", rid, { seekerId, jobId, amount: CFG.rewardPhp, at: now() });
+  }
+}
+async function seekerSwipe(job, dir) {
+  if (dir === "right" && rightSwipesToday(S.uid) >= CFG.dailyRightSwipes) return `You've used today's ${CFG.dailyRightSwipes} right swipes. Left swipes still work.`;
+  await put("swipes", swipeId("seeker", S.uid, job.id), { side: "seeker", seekerId: S.uid, jobId: job.id, dir, at: now() });
+  if (dir === "right") {
+    // Sample companies answer instantly so you can see a match.
+    if (job.sample && job.autoLike && !sw("company", S.uid, job.id)) await companyRight(job.id, S.uid);
+    await maybeMatch(job.id, S.uid);
+  }
+  return null;
+}
+async function companySwipe(jobId, seeker, dir) {
+  if (dir === "left") await put("swipes", swipeId("company", seeker.id, jobId), { side: "company", seekerId: seeker.id, jobId, dir, at: now() });
+  else {
+    await companyRight(jobId, seeker.id);
+    if (seeker.sample && seeker.autoLike && !sw("seeker", seeker.id, jobId))
+      await put("swipes", swipeId("seeker", seeker.id, jobId), { side: "seeker", seekerId: seeker.id, jobId, dir: "right", at: now() });
+    await maybeMatch(jobId, seeker.id);
+  }
+  return null;
+}
+
+/* ============================================================
+   UI helpers
+   ============================================================ */
+const h = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const $ = (sel, root = document) => root.querySelector(sel);
+let toastTimer;
+function toast(msg) {
+  let t = $("#toast"); if (!t) { t = document.createElement("div"); t.id = "toast"; t.className = "toast"; t.setAttribute("role", "status"); document.body.append(t); }
+  t.textContent = msg; t.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => (t.hidden = true), 2600);
+}
+function showMatch(jobId, seekerId) {
+  const j = D.jobs[jobId] || {}; const s = D.seekers[seekerId] || {};
+  const other = seekerId === S.uid ? j.companyName : `${s.first} ${s.last}`;
+  $("#overlay").innerHTML = `<div class="matchpop" role="dialog" aria-modal="true" aria-label="It's a match"><div class="panel">
+    <h2>It's a match!</h2><p>You and <b>${h(other)}</b> both swiped right on <b>${h(j.title)}</b>. Names, exact salary and the full resume are now unlocked.</p>
+    <div class="row" style="justify-content:center"><button class="btn" id="mp-chat">Open chat</button><button class="btn ghost" id="mp-close">Keep swiping</button></div></div></div>`;
+  $("#mp-close").onclick = () => ($("#overlay").innerHTML = "");
+  $("#mp-chat").onclick = () => { $("#overlay").innerHTML = ""; UI.openMatch = matchId(jobId, seekerId); go("matches"); };
+}
+
+/* Swipe deck: drag, buttons or arrow keys */
+function mountDeck(el, items, renderCard, onSwipe, emptyHtml) {
+  let queue = items.slice(0, 2);
+  if (!queue.length) { el.innerHTML = `<div class="panel emptydeck">${emptyHtml}</div>`; return; }
+  el.innerHTML = `<div class="deckwrap"><div class="deck" id="deck"></div>
+    <div class="swipebtns"><button class="nope" id="d-no" aria-label="Swipe left">✕</button><button class="like" id="d-yes" aria-label="Swipe right">♥</button></div>
+    <p class="small muted">Drag the card, tap the buttons, or use ← →</p></div>`;
+  const deck = $("#deck", el);
+  deck.innerHTML = [...queue].reverse().map((it, i, arr) => `<article class="card ${i < arr.length - 1 ? "under" : "top"}" data-id="${h(it.id)}">
+      <span class="stamp yes">Yes</span><span class="stamp no">Nope</span><div class="body">${renderCard(it)}</div></article>`).join("");
+  const top = $(".card.top", deck); const item = items[0];
+  let x0 = null, dx = 0, busy = false;
+  const setX = (x, anim) => {
+    top.style.transition = anim ? "transform .25s ease-out" : "none";
+    top.style.transform = `translateX(${x}px) rotate(${x / 18}deg)`;
+    $(".stamp.yes", top).style.opacity = Math.max(0, Math.min(1, x / 110));
+    $(".stamp.no", top).style.opacity = Math.max(0, Math.min(1, -x / 110));
+  };
+  async function go_(dir) {
+    if (busy) return; busy = true;
+    setX(dir === "right" ? 640 : -640, true);
+    await new Promise((r) => setTimeout(r, 230));
+    const err = await onSwipe(item, dir); // the write re-renders the deck with the next card
+    if (err) { toast(err); render(); }
+  }
+  top.addEventListener("pointerdown", (e) => { if (e.target.closest("button,select,input,a")) return; x0 = e.clientX; top.setPointerCapture(e.pointerId); });
+  top.addEventListener("pointermove", (e) => { if (x0 === null) return; dx = e.clientX - x0; setX(dx, false); });
+  const up = () => { if (x0 === null) return; x0 = null; if (dx > 110) go_("right"); else if (dx < -110) go_("left"); else setX(0, true); dx = 0; };
+  top.addEventListener("pointerup", up); top.addEventListener("pointercancel", up);
+  $("#d-no", el).onclick = () => go_("left");
+  $("#d-yes", el).onclick = () => go_("right");
+  UI.deckKeys = (k) => { if (k === "ArrowRight") go_("right"); if (k === "ArrowLeft") go_("left"); };
+}
+document.addEventListener("input", (e) => { if (e.target.closest("form")) UI.dirty = true; });
+document.addEventListener("submit", () => { UI.dirty = false; }, true);
+window.addEventListener("hashchange", () => { UI.dirty = false; });
+document.addEventListener("keydown", (e) => { if (/input|textarea|select/i.test(e.target.tagName)) return; UI.deckKeys && UI.deckKeys(e.key); });
+
+/* ============================================================
+   Views
+   ============================================================ */
+const UI = { route: "home", side: "seeker", seekerTab: "jobs", companyTab: "jobs", openJob: null, openMatch: null, filters: { q: "", role: null, skills: [] }, signup: {}, draft: null, deckKeys: null, menuFor: null };
+const ROUTES = ["home", "seeker", "company", "matches", "admin"];
+function go(r) { if (location.hash !== "#" + r) location.hash = r; else render(); }
+window.addEventListener("hashchange", () => { UI.route = ROUTES.includes(location.hash.slice(1)) ? location.hash.slice(1) : "home"; render(); });
+
+let lastHtmlKey = "";
+function render(fromData = false) {
+  if (!S.uid) return;
+  UI.deckKeys = null;
+  if (!fromData) UI.dirty = false;
+  const r = UI.route;
+  $("#toplinks").innerHTML = [["seeker", "Job seeker"], ["company", "Company"], ["matches", "Matches"], ...(S.isOwner ? [["admin", "Admin"]] : [])]
+    .map(([k, l]) => `<a href="#${k}" ${r === k ? 'aria-current="page"' : ""}>${l}</a>`).join("");
+  const app = $("#app");
+  // keep typing focus stable: don't re-render a view while the user is typing in it
+  // data arriving from other devices must not wipe a form the viewer is filling in
+  const active = document.activeElement;
+  if (fromData && UI._lastRoute === r && app.querySelector("form") && ((app.contains(active) && /input|textarea|select/i.test(active.tagName)) || UI.dirty)) return;
+  UI._lastRoute = r;
+  if (!S.ready) { app.innerHTML = `<p class="muted">Loading Daliapply…</p>`; return; }
+  ({ home: viewHome, seeker: viewSeeker, company: viewCompany, matches: viewMatches, admin: viewAdmin }[r] || viewHome)(app);
+}
+
+/* ---------- Landing ---------- */
+const EX = {
+  seeker: ["remote PHP developer job, 80k+", "React frontend role in Manila", "QA tester, English and Filipino", "team lead, Laravel, Cebu"],
+  company: ["PHP programmer, 5 yrs, team lead experience", "React developer with 3 years TypeScript", "QA engineer, Selenium 2+ yrs", "DevOps, AWS 4 yrs, remote"],
+};
+let typer = null;
+function startTyper(input) {
+  clearTimeout(typer); let i = 0, n = 0, del_ = false;
+  const pre = UI.side === "seeker" ? "What are you looking for? e.g. " : "Who are you looking for? e.g. ";
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (reduce) { input.placeholder = pre + EX[UI.side][0]; return; }
+  const tick = () => {
+    if (!document.body.contains(input)) return;
+    const t = EX[UI.side][i]; n += del_ ? -1 : 1; input.placeholder = pre + t.slice(0, n);
+    let d = del_ ? 22 : 50;
+    if (!del_ && n === t.length) { del_ = true; d = 1700; } else if (del_ && n === 0) { del_ = false; i = (i + 1) % EX[UI.side].length; d = 300; }
+    typer = setTimeout(tick, d);
+  };
+  tick();
+}
+function viewHome(app) {
+  const q = UI.preview?.q || "";
+  app.innerHTML = `
+  <section class="hero">
+    <h1>Swipe right on your <em>next job.</em></h1>
+    <p class="lede">Upload your resume once. No forms, no cover letters. Names, photos and salary numbers stay hidden until both sides say yes.</p>
+    <div class="toggle" data-side="${UI.side}" role="group" aria-label="I am a">
+      <span class="knob" aria-hidden="true"></span>
+      <button id="t-seeker" aria-pressed="${UI.side === "seeker"}">I'm a job seeker</button>
+      <button id="t-company" aria-pressed="${UI.side === "company"}">I'm a company</button>
+    </div>
+    <form class="bigsearch" id="hero-form"><input id="hero-q" aria-label="Search" value="${h(q)}" autocomplete="off"></form>
+  </section>
+  <section id="preview"></section>
+  <section class="promises">
+    <div><b>Apply once</b><span class="muted">A right swipe sends the profile we read from your resume. Never fill a form again.</span></div>
+    <div><b>Fair first look</b><span class="muted">No photo, age, gender or full name until it's a match. Companies judge skills first.</span></div>
+    <div><b>Seekers get paid</b><span class="muted">Verified seekers earn ${php(CFG.rewardPhp)} when a company swipes right on them, up to ${CFG.paidSwipesPerPost} per job post.</span></div>
+  </section>`;
+  const input = $("#hero-q"); startTyper(input);
+  for (const s of ["seeker", "company"]) $("#t-" + s).onclick = () => { UI.side = s; UI.preview = null; render(); };
+  $("#hero-form").onsubmit = (e) => { e.preventDefault(); UI.preview = { q: input.value.trim() }; renderPreview(); };
+  if (UI.preview) renderPreview();
+}
+function renderPreview() {
+  const box = $("#preview"); if (!box || !UI.preview?.q) return;
+  const f = parseSearch(UI.preview.q);
+  let cards = [];
+  if (UI.side === "seeker") {
+    cards = Object.entries(D.jobs).map(([id, j]) => ({ id, ...j })).filter((j) => j.paid)
+      .filter((j) => !f.skills.length || f.skills.some((k) => (j.skills || []).some((x) => x.label === k.label)) || (f.role && j.title.toLowerCase().includes(f.role)))
+      .filter((j) => !f.remote || j.remote).slice(0, 3)
+      .map((j) => `<div class="panel"><b>${h(j.title)}</b><p class="small muted">${h(j.companyName)} · ${j.remote ? "Remote" : h(j.country)}</p></div>`);
+  } else {
+    cards = Object.values(D.seekers).filter((s) => s.confirmed)
+      .filter((s) => f.skills.every((k) => (s.skills || []).some((x) => x.label === k.label)))
+      .filter((s) => roleMatches(s.headline, f.role)).slice(0, 3)
+      .map((s) => `<div class="panel"><b>${h(mask(s.first, s.last))}</b><p class="small muted">${h(s.headline)} · ${s.totalYears} yrs</p>
+        <div class="chips" style="margin-top:6px">${(s.skills || []).slice(0, 5).map((k) => `<span class="chip">${h(k.label)} ${k.years} yrs</span>`).join("")}</div></div>`);
+  }
+  box.innerHTML = `<div class="stack" style="max-width:680px;margin:0 auto">
+    <div class="chips">${f.role ? `<span class="chip">Role: ${h(f.role)}</span>` : ""}${f.skills.map((k) => `<span class="chip">${h(k.label)}${k.min ? ` ${k.min}+ yrs` : ""}</span>`).join("")}${f.remote ? `<span class="chip">Remote</span>` : ""}${f.salaryMin ? `<span class="chip">${php(f.salaryMin)}+</span>` : ""}</div>
+    ${cards.join("") || `<p class="panel muted">Nothing matches that yet. New ${UI.side === "seeker" ? "jobs" : "seekers"} join every day.</p>`}
+    <div class="row" style="justify-content:center"><a class="btn" href="#${UI.side}">${UI.side === "seeker" ? "Start swiping jobs" : "Start finding candidates"}</a></div></div>`;
+}
+
+/* ---------- Sign-up with email code (simulated in this demo) ---------- */
+function signupBox(app, side) {
+  const st = UI.signup[side] || (UI.signup[side] = { step: "email" });
+  const title = side === "seeker" ? "Create your seeker account" : "Set up your company";
+  if (st.step === "email") {
+    app.innerHTML = `<form class="panel stack" id="su" style="max-width:440px;margin:0 auto">
+      <h2>${title}</h2>
+      <p class="muted small">${side === "company" ? "Use your work email. We check the domain before you can post or search." : "We'll email you a one-time code. No password."}</p>
+      ${side === "company" ? `<label class="f">Company name<input class="in" id="su-name" required></label>` : ""}
+      <label class="f">Email<input class="in" id="su-email" type="email" required></label>
+      <p class="err" id="su-err" hidden></p>
+      <button class="btn">Send code</button></form>`;
+    $("#su").onsubmit = (e) => {
+      e.preventDefault(); const email = $("#su-email").value.trim().toLowerCase(); const domain = email.split("@")[1] || "";
+      if (side === "company" && FREE_MAIL.includes(domain)) { const er = $("#su-err"); er.textContent = `${domain} is a personal email provider. Use your company email, like hr@yourcompany.ph.`; er.hidden = false; return; }
+      Object.assign(st, { step: "code", email, name: side === "company" ? $("#su-name").value.trim() : "", code: String(100000 + Math.floor(Math.random() * 900000)) });
+      render();
+    };
+  } else {
+    app.innerHTML = `<form class="panel stack" id="su2" style="max-width:440px;margin:0 auto">
+      <h2>Check your email</h2>
+      <p class="muted small">We sent a 6-digit code to <b>${h(st.email)}</b>.</p>
+      <div class="notice gold small"><span>Demo: emails aren't sent in this preview. Your code is <b>${st.code}</b>.</span></div>
+      <label class="f">Code<input class="in" id="su-code" inputmode="numeric" maxlength="6" required style="letter-spacing:.3em;font-size:20px"></label>
+      <p class="err" id="su-err" hidden></p>
+      <div class="row"><button class="btn">Verify</button><button type="button" class="btn ghost" id="su-back">Use a different email</button></div></form>`;
+    $("#su-back").onclick = () => { st.step = "email"; render(); };
+    $("#su2").onsubmit = async (e) => {
+      e.preventDefault();
+      if ($("#su-code").value.trim() !== st.code) { const er = $("#su-err"); er.textContent = "That code doesn't match. Check the email and try again."; er.hidden = false; return; }
+      if (side === "company") await put("companies", S.uid, { name: st.name, domain: st.email.split("@")[1], email: st.email, verifiedDomain: true, createdAt: now() });
+      else await put("seekers", S.uid, { email: st.email, emailVerified: true, verification: "unverified", confirmed: false, createdAt: now() });
+      delete UI.signup[side]; render();
+    };
+  }
+}
+
+/* ---------- Seeker ---------- */
+function viewSeeker(app) {
+  const s = me();
+  if (!s) return signupBox(app, "seeker");
+  if (!s.confirmed || UI.seekerTab === "profile") return seekerProfile(app, s);
+  const tabs = [["jobs", "Jobs"], ["rewards", "Rewards"], ["verify", "Verify ID"], ["profile", "My profile"]];
+  app.innerHTML = `<div class="tabs" role="tablist">${tabs.map(([k, l]) => `<button role="tab" data-t="${k}" aria-selected="${UI.seekerTab === k}">${l}</button>`).join("")}</div><div id="sv"></div>`;
+  app.querySelectorAll("[data-t]").forEach((b) => (b.onclick = () => { UI.seekerTab = b.dataset.t; render(); }));
+  const box = $("#sv");
+  if (UI.seekerTab === "rewards") return seekerRewards(box, s);
+  if (UI.seekerTab === "verify") return seekerVerify(box, s);
+  const feed = seekerFeed();
+  const left = CFG.dailyRightSwipes - rightSwipesToday(S.uid);
+  box.innerHTML = `<div class="stack">
+    ${s.verification !== "verified" ? `<div class="notice gold"><span>${s.verification === "pending" ? "Your ID is being reviewed. Once approved you earn " + php(CFG.rewardPhp) + " each time a company swipes right on you." : "Verify your ID to earn " + php(CFG.rewardPhp) + " each time a company swipes right on you."}</span>${s.verification === "pending" ? "" : `<button class="btn small" id="go-verify">Verify now</button>`}</div>` : ""}
+    <p class="small muted" style="text-align:center">${feed.length} job${feed.length === 1 ? "" : "s"} for you · ${left} right swipes left today</p>
+    <div id="deckbox"></div></div>`;
+  if ($("#go-verify")) $("#go-verify").onclick = () => { UI.seekerTab = "verify"; render(); };
+  mountDeck($("#deckbox"), feed, (j) => jobCard(j, s), seekerSwipe,
+    `<h3>You've seen every job that fits you.</h3><p class="muted" style="margin-top:6px">New jobs appear here as companies post them.</p>`);
+  const top = feed[0];
+  if (top) {
+    const menuBtn = $(".card.top .menu-btn");
+    if (menuBtn) menuBtn.onclick = (e) => { e.stopPropagation(); UI.menuFor = UI.menuFor === top.id ? null : top.id; render(); };
+    const hide = $(".card.top [data-hide]");
+    if (hide) hide.onclick = async () => {
+      UI.menuFor = null;
+      await put("hidden", `${S.uid}_${top.companyId}`, { seekerId: S.uid, companyId: top.companyId, until: now() + CFG.hideCompanyDays * DAY });
+      toast(`${top.companyName} is hidden for ${CFG.hideCompanyDays} days.`);
+    };
+  }
+}
+function jobCard(j, s) {
+  const inRange = overlap(s.salaryMin, s.salaryMax, j.salaryMin, j.salaryMax);
+  return `<div class="row" style="justify-content:space-between;align-items:flex-start;flex-wrap:nowrap">
+      <div class="row" style="flex-wrap:nowrap;min-width:0"><div class="logo-tile">${h((j.companyName || "?")[0])}</div>
+      <div style="min-width:0"><p class="small muted">${h(j.companyName)} ${j.sample ? '<span class="tag-sample">Sample</span>' : ""}</p><h3 style="font-size:22px">${h(j.title)}</h3></div></div>
+      <button class="btn ghost small menu-btn" aria-label="More options">⋯</button></div>
+    ${UI.menuFor === j.id ? `<div class="menu"><button data-hide>Hide this company for ${CFG.hideCompanyDays} days</button></div>` : ""}
+    <div class="chips"><span class="chip">${j.remote ? "Remote" : "Onsite"}${j.country ? " · " + h(j.country) : ""}</span>
+      ${(j.languages || []).map((l) => `<span class="chip" style="text-transform:capitalize">${h(l)}</span>`).join("")}
+      <span class="chip ${inRange ? "yes" : "no"}">${inRange ? "Within your range" : "Below your range"}</span></div>
+    <p style="white-space:pre-line">${h(j.description)}</p>
+    <div class="chips">${(j.skills || []).map((k) => `<span class="chip">${h(k.label)} ${k.min}+ yrs</span>`).join("")}</div>
+    <div class="why"><b>Why it matched</b>${h(whyLine(s, j)) || "Fits your country, languages and salary"}</div>`;
+}
+function seekerProfile(app, s) {
+  const d = UI.draft || (s.confirmed ? { ...s, skillsText: (s.skills || []).map((k) => `${k.label}: ${k.years}`).join("\n") } : null);
+  app.innerHTML = `<div class="stack" style="max-width:720px;margin:0 auto">
+    ${s.confirmed ? `<div class="tabs"><button id="back-jobs">← Back to jobs</button></div>` : ""}
+    <section class="panel stack">
+      <h2>Your resume</h2>
+      <p class="muted small">Upload once. We read your skills, years per skill, salary, country and languages. Your name, email and phone are never shown to companies before a match.</p>
+      <div class="row"><input type="file" id="cv" accept="application/pdf"><span class="small muted" id="cv-status"></span></div>
+      <details><summary class="small">No PDF? Paste your resume text instead</summary>
+        <textarea class="in" id="cv-text" rows="6" style="margin-top:8px" placeholder="Paste your resume here"></textarea>
+        <button class="btn ghost small" id="cv-read" style="margin-top:8px">Read this text</button></details>
+    </section>
+    ${d ? `<form class="panel stack" id="pf">
+      <div><h2>Check what we found</h2><p class="muted small">Fix anything we got wrong, then confirm. You only do this once.</p></div>
+      <div class="grid2">
+        ${fld("first", "First name", d.first)}${fld("last", "Last name", d.last)}
+        ${fld("headline", "Main role", d.headline)}${fld("totalYears", "Total years of experience", d.totalYears, "number")}
+        ${fld("salaryMin", "Expected monthly salary from (PHP)", d.salaryMin, "number")}${fld("salaryMax", "to (PHP)", d.salaryMax, "number")}
+        ${fld("country", "Country (2 letters)", d.country)}${fld("languages", "Languages (comma separated)", (d.languages || []).join(", "))}
+      </div>
+      <label class="f">Skills and years, one per line<textarea class="in" id="p-skills" rows="6" style="font-family:ui-monospace,monospace;font-size:13px">${h(d.skillsText ?? (d.skills || []).map((k) => `${k.label}: ${k.years}`).join("\n"))}</textarea></label>
+      <div class="row small"><label class="row"><input type="checkbox" id="p-remote" ${d.remote !== false ? "checked" : ""}> Open to remote</label>
+        <label class="row"><input type="checkbox" id="p-relocate" ${d.relocate ? "checked" : ""}> Open to relocating</label></div>
+      <button class="btn">${s.confirmed ? "Save profile" : "Confirm and start swiping"}</button></form>` : ""}
+  </div>`;
+  if ($("#back-jobs")) $("#back-jobs").onclick = () => { UI.draft = null; UI.seekerTab = "jobs"; render(); };
+  const use = (text) => { const p = readResume(text); UI.draft = { ...p, remote: true, skillsText: p.skills.map((k) => `${k.label}: ${k.years}`).join("\n") }; render(); toast(`Found ${p.skills.length} skills and ${p.totalYears} years of experience.`); };
+  $("#cv").onchange = async (e) => {
+    const f = e.target.files[0]; if (!f) return; $("#cv-status").textContent = "Reading…";
+    try { const t = await pdfText(f); if (t.trim().length < 40) throw new Error("This PDF has no readable text (it may be a scanned image). Paste the text instead."); use(t); }
+    catch (err) { $("#cv-status").textContent = err.message || "Couldn't read that PDF. Paste the text instead."; }
+  };
+  $("#cv-read").onclick = () => { const t = $("#cv-text").value; if (t.trim()) use(t); };
+  if ($("#pf")) $("#pf").onsubmit = async (e) => {
+    e.preventDefault(); const v = (k) => $("#p-" + k).value.trim();
+    const skills = v("skills").split("\n").map((l) => l.trim()).filter(Boolean).map((l) => {
+      const m = l.match(/^(.+?)[\s:,-]+(\d+(?:\.\d+)?)\s*(?:yrs?|years?)?$/i); return { label: (m ? m[1] : l).trim(), years: m ? +m[2] : 0 };
+    });
+    await put("seekers", S.uid, { ...s, first: v("first"), last: v("last"), headline: v("headline"), totalYears: +v("totalYears") || 0,
+      salaryMin: +v("salaryMin") || null, salaryMax: +v("salaryMax") || null, country: v("country").toUpperCase(),
+      languages: v("languages").split(",").map((x) => x.trim().toLowerCase()).filter(Boolean), skills,
+      remote: $("#p-remote").checked, relocate: $("#p-relocate").checked,
+      recentRoles: UI.draft?.recentRoles || s.recentRoles || [], resumeText: UI.draft?.resumeText || s.resumeText || "", confirmed: true });
+    UI.draft = null; UI.seekerTab = "jobs"; render(); toast("Profile saved.");
+  };
+}
+const fld = (k, label, val, type = "text") => `<label class="f">${label}<input class="in" id="p-${k}" type="${type}" step="0.5" value="${h(val ?? "")}"></label>`;
+function seekerVerify(box, s) {
+  const st = s.verification || "unverified";
+  box.innerHTML = `<div class="panel stack" style="max-width:520px">
+    <h2>Verify your identity</h2>
+    <p class="muted small">Only verified seekers earn rewards. Verification is an email code plus a valid government ID.</p>
+    <div class="list small"><div>✓ Email confirmed with a one-time code</div><div>${st === "verified" ? "✓" : "○"} Government ID ${st === "pending" ? "(under review)" : st === "rejected" ? "(not accepted)" : ""}</div></div>
+    ${st === "verified" ? `<p>You're verified. You earn ${php(CFG.rewardPhp)} each time a company swipes right on you.</p>` : ""}
+    ${st === "pending" ? `<p class="muted">We review IDs by hand, usually within a day.</p>` : ""}
+    ${st === "rejected" ? `<p class="err">We couldn't verify that ID${s.verificationNote ? ": " + h(s.verificationNote) : "."} Please try again.</p>` : ""}
+    ${st === "unverified" || st === "rejected" ? `<form class="stack" id="vf">
+      <label class="f">ID type<select class="in" id="v-type"><option>PhilSys National ID</option><option>Passport</option><option>Driver's license</option><option>UMID</option><option>PRC ID</option><option>Postal ID</option></select></label>
+      <label class="f">Photo of the front of your ID<input type="file" id="v-file" accept="image/*,application/pdf" required></label>
+      <p class="small muted">In this demo the photo stays on your device. Only the ID type and file name are sent for review.</p>
+      <button class="btn">Submit for review</button></form>` : ""}</div>`;
+  if ($("#vf")) $("#vf").onsubmit = async (e) => {
+    e.preventDefault(); const f = $("#v-file").files[0];
+    await patch("seekers", S.uid, { verification: "pending", idType: $("#v-type").value, idFile: f ? f.name : "", idSubmittedAt: now() });
+    toast("ID submitted for review.");
+  };
+}
+function seekerRewards(box, s) {
+  const bal = balanceOf(S.uid);
+  const rows = [
+    ...Object.values(D.rewards).filter((r) => r.seekerId === S.uid).map((r) => ({ at: r.at, text: `${(D.jobs[r.jobId] || {}).companyName || "A company"} liked you for ${(D.jobs[r.jobId] || {}).title || "a job"}`, amt: "+ " + php(r.amount) })),
+    ...Object.values(D.payouts).filter((p) => p.seekerId === S.uid).map((p) => ({ at: p.at, text: `Cash-out to ${p.method} (${p.status})`, amt: "− " + php(p.amount) })),
+  ].sort((a, b) => b.at - a.at);
+  box.innerHTML = `<div class="split">
+    <div class="panel stack"><p class="muted small">Balance</p><p class="big-num">${php(bal)}</p>
+      <p class="small muted">You earn ${php(CFG.rewardPhp)} when a company swipes right on you, once per job. Cash out from ${php(CFG.minCashout)} to GCash or Maya.</p>
+      ${s.verification === "verified" ? `<form class="stack" id="co">
+        <div class="grid2"><label class="f">Send to<select class="in" id="co-m"><option>GCash</option><option>Maya</option></select></label>
+        <label class="f">Amount (PHP)<input class="in" id="co-a" type="number" min="${CFG.minCashout}" step="20" value="${Math.max(bal, 0)}"></label></div>
+        <label class="f">Mobile number<input class="in" id="co-n" placeholder="0917 123 4567" required></label>
+        <p class="err" id="co-err" hidden></p><button class="btn accent">Cash out</button></form>`
+        : `<p class="small">Only verified seekers earn rewards. <button class="btn small" id="rv">Verify your ID</button></p>`}</div>
+    <div class="panel stack"><h3>History</h3><div class="list small">${rows.map((r) => `<div class="row" style="justify-content:space-between;flex-wrap:nowrap"><span>${h(r.text)}</span><b style="white-space:nowrap">${r.amt}</b></div>`).join("") || `<p class="muted">Nothing yet. Rewards appear when companies swipe right on you.</p>`}</div></div></div>`;
+  if ($("#rv")) $("#rv").onclick = () => { UI.seekerTab = "verify"; render(); };
+  if ($("#co")) $("#co").onsubmit = async (e) => {
+    e.preventDefault(); const amt = +$("#co-a").value; const er = $("#co-err");
+    const fail = amt < CFG.minCashout ? `The minimum cash-out is ${php(CFG.minCashout)}.` : amt > bal ? `That's more than your balance of ${php(bal)}.` : null;
+    if (fail) { er.textContent = fail; er.hidden = false; return; }
+    await put("payouts", newId(), { seekerId: S.uid, amount: amt, method: $("#co-m").value, number: $("#co-n").value.trim(), status: "requested", at: now() });
+    toast("Cash-out requested. We'll send it soon.");
+  };
+}
+
+/* ---------- Company ---------- */
+function viewCompany(app) {
+  const c = myCompany();
+  if (!c) return signupBox(app, "company");
+  if (UI.openJob && D.jobs[UI.openJob]) return companyJob(app, c, UI.openJob);
+  if (UI.companyTab === "new") return companyNewJob(app, c);
+  const jobs = Object.entries(D.jobs).filter(([, j]) => j.companyId === S.uid).sort((a, b) => b[1].createdAt - a[1].createdAt);
+  app.innerHTML = `<div class="stack">
+    <div class="row" style="justify-content:space-between"><div><p class="small muted">${h(c.domain)} · verified domain</p><h2 style="font-size:30px">${h(c.name)}</h2></div>
+      <button class="btn" id="new-job">Post a job · $${CFG.postPriceUsd}</button></div>
+    <div class="list">${jobs.map(([id, j]) => `<button class="item" data-job="${h(id)}"><div><b>${h(j.title)}</b>
+      <p class="small muted">${j.paid ? "Live" : "Waiting for payment"} · ${rewardUsed(id)}/${CFG.paidSwipesPerPost} paid right swipes used</p></div><span aria-hidden="true">→</span></button>`).join("")
+      || `<div class="panel" style="text-align:center"><p class="muted">No jobs yet. Post one to start seeing candidates.</p></div>`}</div></div>`;
+  $("#new-job").onclick = () => { UI.companyTab = "new"; render(); };
+  app.querySelectorAll("[data-job]").forEach((b) => (b.onclick = () => { UI.openJob = b.dataset.job; UI.filters = { q: "", role: null, skills: [] }; render(); }));
+}
+function companyNewJob(app, c) {
+  app.innerHTML = `<form class="panel stack" id="jf" style="max-width:720px;margin:0 auto">
+    <div class="row" style="justify-content:space-between"><h2>Post a job</h2><button type="button" class="btn ghost small" id="jf-cancel">Cancel</button></div>
+    <p class="small muted">$${CFG.postPriceUsd} per post. It includes ${CFG.paidSwipesPerPost} paid right swipes: each verified seeker you swipe right on earns ${php(CFG.rewardPhp)}.</p>
+    <label class="f">Job title<input class="in" id="j-title" required placeholder="Senior PHP Developer"></label>
+    <label class="f">Description and key requirements<textarea class="in" id="j-desc" rows="4"></textarea></label>
+    <label class="f">Required skills and minimum years, one per line<textarea class="in" id="j-skills" rows="3" style="font-family:ui-monospace,monospace;font-size:13px" placeholder="PHP: 5&#10;Management: 2"></textarea></label>
+    <div class="grid2"><label class="f">Monthly salary from (PHP)<input class="in" id="j-min" type="number"></label><label class="f">to (PHP)<input class="in" id="j-max" type="number"></label>
+      <label class="f">Country (2 letters)<input class="in" id="j-country" value="PH"></label><label class="f">Required languages (comma separated)<input class="in" id="j-langs" placeholder="english"></label></div>
+    <div class="row small"><label class="row"><input type="checkbox" id="j-remote"> Remote</label><label class="row"><input type="checkbox" id="j-reloc"> Relocation offered</label></div>
+    <button class="btn">Continue to payment</button></form>`;
+  $("#jf-cancel").onclick = () => { UI.companyTab = "jobs"; render(); };
+  $("#jf").onsubmit = async (e) => {
+    e.preventDefault(); const v = (k) => $("#j-" + k).value.trim(); const id = newId();
+    const skills = v("skills").split("\n").map((l) => l.trim()).filter(Boolean).map((l) => { const m = l.match(/^(.+?)[\s:,-]+(\d+(?:\.\d+)?)\s*(?:yrs?|years?)?$/i); return { label: (m ? m[1] : l).trim(), min: m ? +m[2] : 0 }; });
+    await put("jobs", id, { companyId: S.uid, companyName: c.name, title: v("title"), description: v("desc"), skills, salaryMin: +v("min") || null, salaryMax: +v("max") || null,
+      country: v("country").toUpperCase(), languages: v("langs").split(",").map((x) => x.trim().toLowerCase()).filter(Boolean), remote: $("#j-remote").checked, relocation: $("#j-reloc").checked, paid: false, createdAt: now() });
+    UI.companyTab = "jobs"; UI.openJob = id; render();
+  };
+}
+function companyJob(app, c, jobId) {
+  const j = D.jobs[jobId]; const used = rewardUsed(jobId);
+  const head = `<div class="row" style="justify-content:space-between"><div><button class="btn ghost small" id="back">← All jobs</button><h2 style="font-size:28px;margin-top:10px">${h(j.title)}</h2></div></div>`;
+  if (!j.paid) {
+    app.innerHTML = `<div class="stack">${head}<div class="panel stack" style="max-width:520px"><h3>Pay $${CFG.postPriceUsd} to publish</h3>
+      <p class="muted small">About ${php(CFG.postPriceUsd * 58)}. Includes ${CFG.paidSwipesPerPost} paid right swipes for verified seekers.</p>
+      <div class="notice small"><span>Demo: no real payment is taken. Online payment (GCash, Maya, cards) comes with the full launch.</span></div>
+      <button class="btn accent" id="pay">Pay $${CFG.postPriceUsd} and publish (demo)</button></div></div>`;
+    $("#back").onclick = () => { UI.openJob = null; render(); };
+    $("#pay").onclick = async () => { await patch("jobs", jobId, { paid: true, paidAt: now() }); toast("Payment received. Your job is live."); };
+    return;
+  }
+  const f = UI.filters; const list = candidates(jobId, f);
+  app.innerHTML = `<div class="stack">${head}
+    <form id="cs"><div class="bigsearch" style="width:100%"><input id="cs-q" value="${h(f.q)}" placeholder="Who are you looking for? e.g. programmer with 5 years in management and PHP" autocomplete="off"></div></form>
+    <div class="chips">${f.role ? `<button class="chip" data-rm="role">Role: ${h(f.role)} ×</button>` : ""}${f.skills.map((k, i) => `<button class="chip" data-rm="${i}">${h(k.label)}${k.min ? ` ${k.min}+ yrs` : ""} ×</button>`).join("")}</div>
+    <div class="panel stack small" style="max-width:420px;margin:0 auto;width:100%;padding:12px 16px">
+      <div class="row" style="justify-content:space-between"><span>${used >= CFG.paidSwipesPerPost ? "Reward pool used: right swipes still work but no longer pay" : `${CFG.paidSwipesPerPost - used} of ${CFG.paidSwipesPerPost} paid right swipes left`}</span><b>${used}/${CFG.paidSwipesPerPost}</b></div>
+      <div class="meter"><i style="width:${(100 * Math.min(used, CFG.paidSwipesPerPost)) / CFG.paidSwipesPerPost}%"></i></div></div>
+    <div id="deckbox"></div></div>`;
+  $("#back").onclick = () => { UI.openJob = null; render(); };
+  $("#cs").onsubmit = (e) => { e.preventDefault(); const q = $("#cs-q").value.trim(); const p = parseSearch(q); UI.filters = { q, role: p.role, skills: p.skills }; render(); };
+  app.querySelectorAll("[data-rm]").forEach((b) => (b.onclick = () => { const k = b.dataset.rm; if (k === "role") f.role = null; else f.skills.splice(+k, 1); render(); }));
+  mountDeck($("#deckbox"), list, (s) => seekerCard(s, j), (s, dir) => companySwipe(jobId, s, dir),
+    `<h3>No more candidates for this job.</h3><p class="muted" style="margin-top:6px">${f.skills.length || f.role ? "Remove a filter above to see more." : "New seekers appear here as they join."}</p>`);
+}
+function seekerCard(s, j) {
+  return `<p class="small muted">${s.sample ? '<span class="tag-sample">Sample</span> ' : ""}${s.verification === "verified" ? '<span class="chip yes">✓ Verified</span>' : ""}</p>
+    <p class="masked" aria-label="Name hidden until a match">${h(mask(s.first, s.last))}</p>
+    <p class="muted">${h(s.headline)} · ${s.totalYears} yrs total</p>
+    <div class="chips">${(s.skills || []).slice(0, 8).map((k) => `<span class="chip">${h(k.label)} ${k.years} yrs</span>`).join("")}</div>
+    ${(s.recentRoles || []).length ? `<div class="small">${s.recentRoles.slice(0, 3).map((r) => `<div>${h(r.title)} · ${r.years} yrs</div>`).join("")}</div>` : ""}
+    <div class="chips">${s.country ? `<span class="chip">${h(s.country)}</span>` : ""}${(s.languages || []).map((l) => `<span class="chip" style="text-transform:capitalize">${h(l)}</span>`).join("")}
+      <span class="chip yes">Within your budget</span></div>
+    <div class="why"><b>Why it matched</b>${h(whyLine(s, j)) || "Fits your country, languages and budget"}</div>`;
+}
+
+/* ---------- Matches and chat ---------- */
+function myMatches() {
+  return Object.entries(D.matches).map(([id, m]) => ({ id, ...m, job: D.jobs[m.jobId] || {} }))
+    .filter((m) => m.seekerId === S.uid || m.job.companyId === S.uid).sort((a, b) => b.at - a.at);
+}
+function viewMatches(app) {
+  const ms = myMatches();
+  if (UI.openMatch && D.matches[UI.openMatch]) return matchChat(app, UI.openMatch);
+  app.innerHTML = `<div class="stack"><h2 style="font-size:30px">Matches</h2><div class="list">${ms.map((m) => {
+    const asSeeker = m.seekerId === S.uid; const s = D.seekers[m.seekerId] || {};
+    return `<button class="item" data-m="${h(m.id)}"><div><b>${h(asSeeker ? m.job.companyName : `${s.first} ${s.last}`)}</b><p class="small muted">${asSeeker ? h(m.job.title) : `${h(s.headline)} · for ${h(m.job.title)}`}</p></div><span class="chip gold">Match</span></button>`;
+  }).join("") || `<div class="panel"><p class="muted">No matches yet. A match happens when a company and a seeker both swipe right on the same job.</p></div>`}</div></div>`;
+  app.querySelectorAll("[data-m]").forEach((b) => (b.onclick = () => { UI.openMatch = b.dataset.m; render(); }));
+}
+function matchChat(app, id) {
+  const m = D.matches[id]; const j = D.jobs[m.jobId] || {}; const s = D.seekers[m.seekerId] || {};
+  const asSeeker = m.seekerId === S.uid;
+  const thread = Object.values(D.messages).filter((x) => x.matchId === id).sort((a, b) => a.at - b.at);
+  const range = (a, b) => (a || b ? `${php(a)} – ${php(b)}` : "Not stated");
+  app.innerHTML = `<div class="stack"><div><button class="btn ghost small" id="back">← All matches</button></div><div class="split">
+    <aside class="panel stack">${asSeeker
+      ? `<div class="row" style="flex-wrap:nowrap"><div class="logo-tile">${h((j.companyName || "?")[0])}</div><div><h3>${h(j.companyName)}</h3><p class="muted small">${h(j.title)}</p></div></div>
+         <p><b>Salary:</b> ${range(j.salaryMin, j.salaryMax)} a month</p><p class="small" style="white-space:pre-line">${h(j.description)}</p>`
+      : `<h3 style="font-size:24px">${h(s.first)} ${h(s.last)}</h3><p class="muted">${h(s.headline)} · ${s.totalYears} yrs</p>
+         <p><b>Expected salary:</b> ${range(s.salaryMin, s.salaryMax)} a month</p>${s.email ? `<p><b>Email:</b> ${h(s.email)}</p>` : ""}
+         <div class="chips">${(s.skills || []).map((k) => `<span class="chip">${h(k.label)} ${k.years} yrs</span>`).join("")}</div>
+         ${s.resumeText ? `<pre class="resume">${h(s.resumeText)}</pre>` : ""}`}</aside>
+    <section class="panel chat"><div class="msgs" id="msgs">${thread.map((x) => `<div class="msg ${x.from === S.uid ? "me" : ""}">${h(x.body)}</div>`).join("") || `<p class="muted small" style="text-align:center">It's a match! Say hello.</p>`}</div>
+      <form class="row" id="send" style="flex-wrap:nowrap"><input class="in" id="msg-in" placeholder="Write a message" autocomplete="off" maxlength="2000"><button class="btn">Send</button></form></section></div></div>`;
+  $("#back").onclick = () => { UI.openMatch = null; render(); };
+  const ms = $("#msgs"); ms.scrollTop = ms.scrollHeight;
+  $("#send").onsubmit = async (e) => {
+    e.preventDefault(); const body = $("#msg-in").value.trim(); if (!body) return;
+    $("#msg-in").value = ""; $("#msg-in").blur();
+    await put("messages", newId(), { matchId: id, from: S.uid, body, at: now() });
+    $("#msg-in")?.focus();
+  };
+}
+
+/* ---------- Admin ---------- */
+function viewAdmin(app) {
+  if (!S.isOwner) { app.innerHTML = `<p class="panel muted">Only the Daliapply team can open the admin page.</p>`; return; }
+  const pending = Object.entries(D.seekers).filter(([, s]) => s.verification === "pending");
+  const payouts = Object.entries(D.payouts).filter(([, p]) => p.status === "requested");
+  const unpaid = Object.entries(D.jobs).filter(([, j]) => !j.paid);
+  app.innerHTML = `<div class="stack">
+    <h2 style="font-size:30px">Admin</h2>
+    <section class="stack"><h3>ID review queue (${pending.length})</h3>${pending.map(([id, s]) => `<div class="panel stack">
+      <div class="row" style="justify-content:space-between"><div><b>${h(s.first)} ${h(s.last)}</b><p class="small muted">${h(s.idType)} · ${h(s.idFile || "no file name")} · ${h(s.email || "")}</p></div></div>
+      <p class="small muted">Check the name matches the resume and the ID is valid and not expired.</p>
+      <div class="row"><button class="btn small" data-ok="${h(id)}">Approve</button><input class="in" style="flex:1;min-width:160px" placeholder="Reason if rejecting" id="note-${h(id)}"><button class="btn ghost small" data-no="${h(id)}">Reject</button></div></div>`).join("") || `<p class="muted small">Nothing to review.</p>`}</section>
+    <section class="stack"><h3>Cash-out requests (${payouts.length})</h3>${payouts.map(([id, p]) => { const s = D.seekers[p.seekerId] || {};
+      return `<div class="panel row" style="justify-content:space-between"><span>${php(p.amount)} to ${h(p.method)} ${h(p.number)} · ${h(s.first)} ${h(s.last)}</span><span class="row"><button class="btn small" data-sent="${h(id)}">Mark sent</button><button class="btn ghost small" data-rej="${h(id)}">Reject</button></span></div>`; }).join("") || `<p class="muted small">None.</p>`}</section>
+    <section class="stack"><h3>Jobs waiting for payment (${unpaid.length})</h3>${unpaid.map(([id, j]) => `<div class="panel row" style="justify-content:space-between"><span>${h(j.title)} · ${h(j.companyName)}</span><button class="btn small" data-paid="${h(id)}">Mark paid</button></div>`).join("") || `<p class="muted small">None.</p>`}</section>
+  </div>`;
+  app.querySelectorAll("[data-ok]").forEach((b) => (b.onclick = () => patch("seekers", b.dataset.ok, { verification: "verified", verifiedAt: now(), verificationNote: "" })));
+  app.querySelectorAll("[data-no]").forEach((b) => (b.onclick = () => patch("seekers", b.dataset.no, { verification: "rejected", verificationNote: $("#note-" + CSS.escape(b.dataset.no)).value.trim() })));
+  app.querySelectorAll("[data-sent]").forEach((b) => (b.onclick = () => patch("payouts", b.dataset.sent, { status: "sent", processedAt: now() })));
+  app.querySelectorAll("[data-rej]").forEach((b) => (b.onclick = () => patch("payouts", b.dataset.rej, { status: "rejected", processedAt: now() })));
+  app.querySelectorAll("[data-paid]").forEach((b) => (b.onclick = () => patch("jobs", b.dataset.paid, { paid: true, paidAt: now() })));
+}
+
+/* ============================================================ */
+UI.route = ROUTES.includes(location.hash.slice(1)) ? location.hash.slice(1) : "home";
+boot();
+</script>
