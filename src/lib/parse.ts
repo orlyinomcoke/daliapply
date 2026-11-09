@@ -61,6 +61,13 @@ function findLanguages(text: string) {
   return [...new Set(found)];
 }
 
+// A resume written in English shows the person reads and writes English, even if it never says so.
+function resumeLanguages(text: string) {
+  const found = findLanguages(text);
+  if (!found.includes("english") && (text.match(/\b(the|and|with|for|of)\b/gi) ?? []).length >= 10) found.unshift("english");
+  return found;
+}
+
 function findCountry(text: string) {
   const t = text.toLowerCase();
   let best: { code: string; at: number } | null = null;
@@ -193,7 +200,7 @@ export function extractResumeText(raw: string, now = new Date()): ExtractedProfi
     salary_max: salary.max,
     salary_currency: "PHP",
     country: findCountry(text),
-    languages: findLanguages(text),
+    languages: resumeLanguages(text),
     resume_text: stripContacts(text).trim(),
   };
 }
