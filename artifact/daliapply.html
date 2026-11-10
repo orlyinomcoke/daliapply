@@ -1,7 +1,7 @@
 <title>Daliapply</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,600..800&family=Source+Sans+3:wght@400;500;600;700&display=swap">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <style>
 /* Layout: one narrow app column (max 980px), a top bar, and a swipe deck centred in each side's view. */
@@ -20,8 +20,8 @@
   --yes-soft: #dcf3ea;
   --no: #c8323f;
   --no-soft: #fbe3e5;
-  --display: "Bricolage Grotesque", "Trebuchet MS", system-ui, sans-serif;
-  --body: "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --display: "Archivo", "Arial Narrow", system-ui, sans-serif;
+  --body: "Source Sans 3", system-ui, -apple-system, "Segoe UI", sans-serif;
   --radius: 18px;
 }
 @media (prefers-color-scheme: dark) {
@@ -37,8 +37,8 @@
   --yes: #49d19f; --yes-soft: #12392c; --no: #ff7a85; --no-soft: #43181d; color-scheme: dark;
 }
 * { box-sizing: border-box; }
-body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 15px; line-height: 1.5; }
-h1, h2, h3 { font-family: var(--display); line-height: 1.1; text-wrap: balance; margin: 0; letter-spacing: -0.01em; }
+body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 16px; line-height: 1.5; }
+h1, h2, h3 { font-family: var(--display); font-stretch: 87%; line-height: 1.1; text-wrap: balance; margin: 0; letter-spacing: 0; }
 p { margin: 0; }
 button, input, select, textarea { font: inherit; color: inherit; }
 a { color: var(--primary); }
