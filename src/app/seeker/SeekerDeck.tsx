@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { SwipeDeck, useDeck } from "@/components/SwipeDeck";
 import { hideCompany, seekerSwipe } from "./actions/swipe";
+import { ReportDialog } from "@/components/AccountActions";
 
 export type JobCard = {
   id: string; company_id: string; company_name: string; company_logo: string | null;
@@ -24,6 +25,7 @@ export function SeekerDeck({ jobs }: { jobs: JobCard[] }) {
 
 function Job({ job }: { job: JobCard }) {
   const [menu, setMenu] = useState(false);
+  const [reporting, setReporting] = useState(false);
   const deck = useDeck<JobCard>();
   return (
     <div className="flex h-full flex-col gap-3">
@@ -54,14 +56,19 @@ function Job({ job }: { job: JobCard }) {
               >
                 Hide this company for 30 days
               </button>
+              <button className="w-full rounded-lg px-3 py-2 text-left hover:bg-brand-soft" onClick={() => { setMenu(false); setReporting(true); }}>
+                Report this job
+              </button>
             </div>
           )}
+          {reporting && <ReportDialog target={{ kind: "job", jobId: job.id, companyId: job.company_id, label: `${job.title} at ${job.company_name}` }}
+            onClose={(sent) => { setReporting(false); if (sent) deck.drop((j) => j.id === job.id); }} />}
         </div>
       </div>
       <div className="flex flex-wrap gap-2">
         <span className="chip">{job.remote ? "Remote" : "Onsite"}{job.country ? ` · ${job.country}` : ""}</span>
         {job.languages.map((l) => <span key={l} className="chip capitalize">{l}</span>)}
-        <span className={`chip ${job.salary_badge.startsWith("Within") ? "!bg-green-100 !text-green-800" : ""}`}>{job.salary_badge}</span>
+        <span className={`chip ${job.salary_badge.startsWith("Within") ? "!bg-yes-soft !text-yes" : ""}`}>{job.salary_badge}</span>
       </div>
       <p className="whitespace-pre-line text-sm">{job.description}</p>
       {job.why && (

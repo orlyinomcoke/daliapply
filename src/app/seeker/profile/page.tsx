@@ -2,6 +2,7 @@ import { requireRole } from "@/lib/session";
 import { skillLines } from "@/lib/skills";
 import { saveProfile, uploadResume } from "../actions/profile";
 import { SubmitButton } from "@/components/SubmitButton";
+import { DeleteAccount } from "@/components/AccountActions";
 
 export default async function SeekerProfile() {
   const { supabase, user } = await requireRole("seeker");
@@ -50,6 +51,7 @@ export default async function SeekerProfile() {
           <SubmitButton>Confirm and start swiping</SubmitButton>
         </form>
       )}
+      <DeleteAccount side="seeker" />
     </div>
   );
 }

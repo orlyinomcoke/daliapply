@@ -7,7 +7,6 @@ export function SeekerNav() {
       <Link className="btn-ghost" href="/matches">Matches</Link>
       <Link className="btn-ghost" href="/seeker/verify">Verify ID</Link>
       <Link className="btn-ghost" href="/seeker/profile">Profile</Link>
-      <form action="/auth/signout" method="post"><button className="btn-ghost">Sign out</button></form>
     </nav>
   );
 }
@@ -18,7 +17,6 @@ export function CompanyNav() {
       <Link className="btn-ghost" href="/company">Jobs</Link>
       <Link className="btn-ghost" href="/company/jobs/new">Post a job</Link>
       <Link className="btn-ghost" href="/matches">Matches</Link>
-      <form action="/auth/signout" method="post"><button className="btn-ghost">Sign out</button></form>
     </nav>
   );
 }

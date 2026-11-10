@@ -18,7 +18,7 @@ const EXAMPLES = {
 };
 const PREFIX = { seeker: "What are you looking for? e.g. ", company: "Who are you looking for? e.g. " };
 
-type Side = "seeker" | "company";
+import type { Side } from "@/lib/copy";
 
 /** Types each example out letter by letter, then cycles to the next. */
 function useTypedPlaceholder(side: Side) {
@@ -42,15 +42,15 @@ function useTypedPlaceholder(side: Side) {
   return PREFIX[side] + text;
 }
 
-export function LandingSearch() {
-  const [side, setSide] = useState<Side>("seeker");
+/** The seeker/company toggle and the big search box. The parent owns the side. */
+export function LandingSearch({ side, setSide }: { side: Side; setSide: (s: Side) => void }) {
   const [q, setQ] = useState("");
   const placeholder = useTypedPlaceholder(side);
   const router = useRouter();
 
   return (
-    <div className="mx-auto w-full max-w-2xl">
-      <div className="relative mx-auto mb-5 grid w-fit grid-cols-2 rounded-full border border-line bg-card p-1 text-sm font-semibold">
+    <div className="w-full max-w-2xl">
+      <div className="relative mb-4 grid w-full grid-cols-2 rounded-full bg-card p-1 text-sm font-semibold sm:w-fit">
         <span
           aria-hidden
           className="absolute inset-y-1 left-1 w-[calc(50%-4px)] rounded-full bg-brand transition-transform duration-300"
@@ -59,8 +59,10 @@ export function LandingSearch() {
         {(["seeker", "company"] as const).map((s) => (
           <button
             key={s}
+            type="button"
+            aria-pressed={side === s}
             onClick={() => setSide(s)}
-            className={`relative z-10 rounded-full px-5 py-2 transition-colors ${side === s ? "text-white" : ""}`}
+            className={`relative z-10 rounded-full px-5 py-2 transition-colors ${side === s ? "text-card" : "text-foreground"}`}
           >
             {s === "seeker" ? "I'm a job seeker" : "I'm a company"}
           </button>
@@ -73,12 +75,11 @@ export function LandingSearch() {
         }}
       >
         <input
-          autoFocus
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder={placeholder}
           aria-label="Search"
-          className="w-full rounded-2xl border border-line bg-card px-6 py-5 text-lg shadow-sm outline-none focus:border-brand"
+          className="w-full rounded-2xl border-2 border-transparent bg-card px-6 py-5 text-lg text-foreground shadow-[0_18px_40px_-20px_rgba(0,0,0,.55)] outline-none focus:border-accent"
         />
       </form>
     </div>

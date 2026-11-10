@@ -5,6 +5,8 @@ import { supabaseService } from "@/lib/supabase/server";
 import { CompanyNav, SeekerNav } from "@/components/Nav";
 import { SubmitButton } from "@/components/SubmitButton";
 import { AutoRefresh } from "@/components/AutoRefresh";
+import { notifyMessage } from "@/lib/email";
+import { ReportButton } from "@/components/AccountActions";
 
 type Profile = {
   first_name: string; last_name: string; headline: string; salary_min: number | null; salary_max: number | null;
@@ -16,9 +18,9 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
   const { supabase, user, role } = await getSession();
   if (!user || !role) redirect("/signin");
 
-  const { data: match } = await supabase.from("matches").select("id, jobs(title, salary_min, salary_max, salary_currency, companies(name))").eq("id", id).maybeSingle();
+  const { data: match } = await supabase.from("matches").select("id, job_id, seeker_id, jobs(title, company_id, salary_min, salary_max, salary_currency, companies(name))").eq("id", id).maybeSingle();
   if (!match) notFound();
-  const job = match.jobs as unknown as { title: string; salary_min: number | null; salary_max: number | null; salary_currency: string; companies: { name: string } };
+  const job = match.jobs as unknown as { title: string; company_id: string; salary_min: number | null; salary_max: number | null; salary_currency: string; companies: { name: string } };
   const { data: profile } = await supabase.rpc("matched_profile", { p_match: id }).single<Profile>();
   const { data: messages } = await supabase.from("messages").select("id, sender_id, body, created_at").eq("match_id", id).order("created_at");
 
@@ -36,6 +38,7 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
     if (!user || !body) return;
     const { error } = await supabase.from("messages").insert({ match_id: id, sender_id: user.id, body });
     if (error) throw error;
+    await notifyMessage(id, user.id, body);
     revalidatePath(`/matches/${id}`);
   }
 
@@ -46,6 +49,11 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
     <div className="space-y-6">
       <AutoRefresh seconds={5} />
       {role === "company" ? <CompanyNav /> : <SeekerNav />}
+      <div className="flex justify-end">
+        <ReportButton target={role === "company"
+          ? { kind: "seeker", seekerId: match.seeker_id, matchId: id, label: `${profile?.first_name ?? ""} ${profile?.last_name ?? ""}`.trim() || "this person" }
+          : { kind: "company", jobId: match.job_id, companyId: job.company_id, matchId: id, label: `${job.companies.name} (${job.title})` }} />
+      </div>
       <div className="grid gap-6 md:grid-cols-[1fr_1.3fr]">
         <aside className="card space-y-3 text-sm">
           {role === "company" ? (
@@ -68,7 +76,7 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
         <section className="card flex min-h-[28rem] flex-col">
           <div className="flex-1 space-y-2 overflow-y-auto">
             {(messages ?? []).map((m) => (
-              <div key={m.id} className={`max-w-[80%] rounded-2xl px-4 py-2 text-sm ${m.sender_id === user.id ? "ml-auto bg-brand text-white" : "bg-background"}`}>
+              <div key={m.id} className={`max-w-[80%] rounded-2xl px-4 py-2 text-sm ${m.sender_id === user.id ? "ml-auto bg-brand text-card" : "bg-background"}`}>
                 {m.body}
               </div>
             ))}

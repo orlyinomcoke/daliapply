@@ -1,10 +1,15 @@
 "use server";
 import { requireRole } from "@/lib/session";
+import { notifyMatch } from "@/lib/email";
 
 export async function seekerSwipe(jobId: string, direction: "left" | "right"): Promise<string | null> {
   const { supabase, user } = await requireRole("seeker");
   const { error } = await supabase.from("seeker_swipes").insert({ seeker_id: user.id, job_id: jobId, direction });
-  if (!error) return null;
+  if (!error) {
+    if (direction === "right") await notifyMatch(jobId, user.id);
+    return null;
+  }
+  if (error.message.includes("JOB_NOT_LIVE")) return "This job just closed. On to the next one.";
   if (error.message.includes("DAILY_RIGHT_SWIPE_CAP")) return "You've used today's right swipes. Come back tomorrow, or keep swiping left.";
   if (error.code === "23505") return null; // already swiped
   return "Something went wrong. Please try again.";

@@ -51,6 +51,9 @@ const SKILL_PATTERNS: [string, RegExp][] = Object.entries(SKILLS).map(([label, a
   return [label, new RegExp(`(?<![a-z0-9+#.])(?:${names.join("|")})(?![a-z0-9+#])`, "i")];
 });
 
+/** Every skill the matcher knows, by its display label. */
+export const SKILL_LABELS = Object.keys(SKILLS);
+
 export function findSkills(text: string) {
   return SKILL_PATTERNS.filter(([, re]) => re.test(text)).map(([label]) => label);
 }

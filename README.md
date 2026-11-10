@@ -25,11 +25,25 @@ npm run dev                 # http://localhost:3000
 - Make yourself an admin: see `supabase/seed.sql`. Admins approve IDs, and mark ₱1,998 job posts as paid at `/admin`.
 - Reset the database: `npx supabase db reset`.
 
+## Hosted Supabase (already set up)
+
+Run each migration once in the SQL Editor, in order: `0001_init.sql`, then `0002_launch.sql` (payments with
+receipts, 30-day job expiry and renewal, "position filled", reports and takedowns, support messages, account
+deletion). 0002 also creates the private `receipts` storage bucket.
+
+## Email
+
+Emails (new match, new message, payment approved or rejected, takedown, sales and support inboxes) go through
+[Resend](https://resend.com) (free: 3,000 a month). Without `RESEND_API_KEY` they're printed to the server log.
+Set `NEXT_PUBLIC_SITE_URL`, `EMAIL_FROM`, `SALES_EMAIL` and `SUPPORT_EMAIL` in `.env.local` (see `.env.example`),
+and verify your sending domain in Resend.
+
 ## Business rules (enforced in the database)
 
-See `supabase/migrations/0001_init.sql`.
+See `supabase/migrations/0001_init.sql` and `0002_launch.sql`.
 
-- ₱1,998 per job post (GCash / InstaPay); a post goes live only after payment is confirmed (by an admin for now).
+- ₱1,998 per job post (GCash / InstaPay); a post goes live only after payment is confirmed (by an admin for now), and stays live 30 days.
+- Companies can mark a post filled, reopen it, or renew it after it expires (renewal is another payment).
 - Verified seekers (email OTP + a government ID approved in the admin queue) get a Verified badge on their card.
 - Seekers: daily right-swipe cap (25, in `app_settings`), left swipes unlimited, hide a company for 30 days.
 

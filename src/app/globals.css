@@ -1,24 +1,38 @@
 @import "tailwindcss";
 
 :root {
-  --background: #fafaf9;
-  --foreground: #1c1917;
-  --brand: #e11d48;
-  --brand-soft: #ffe4e6;
+  --background: #f4f5f9;
+  --foreground: #161a33;
+  --brand: #1f2a7a;          /* deep jeepney blue: main actions */
+  --brand-soft: #eceefb;
+  --accent: #ffb000;         /* mango: highlights, matches */
+  --accent-ink: #3a2700;
   --card: #ffffff;
-  --muted: #78716c;
-  --line: #e7e5e4;
+  --muted: #5e6382;
+  --line: #e1e3ee;
+  --yes: #12805c;
+  --yes-soft: #dcf3ea;
+  --no: #c8323f;
+  --no-soft: #fbe3e5;
+  --hero: #1f2a7a;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0c0a09;
-    --foreground: #f5f5f4;
-    --brand: #fb7185;
-    --brand-soft: #4c0519;
-    --card: #1c1917;
-    --muted: #a8a29e;
-    --line: #292524;
+    --background: #0f1124;
+    --foreground: #eef0fb;
+    --brand: #8d9cff;
+    --brand-soft: #23274a;
+    --accent: #ffbf33;
+    --accent-ink: #2a1c00;
+    --card: #191c35;
+    --muted: #a2a6c4;
+    --line: #2b2f52;
+    --yes: #49d19f;
+    --yes-soft: #12392c;
+    --no: #ff7a85;
+    --no-soft: #43181d;
+    --hero: #26318f;
   }
 }
 
@@ -30,6 +44,13 @@
   --color-card: var(--card);
   --color-muted: var(--muted);
   --color-line: var(--line);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-yes: var(--yes);
+  --color-yes-soft: var(--yes-soft);
+  --color-no: var(--no);
+  --color-no-soft: var(--no-soft);
+  --color-hero: var(--hero);
   --font-sans: var(--font-body);
 }
 
@@ -44,7 +65,8 @@ h1, h2, h3 {
   font-stretch: 87%;
 }
 
-.btn-primary { @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold transition disabled:opacity-50 bg-brand text-white hover:opacity-90; }
+.btn-primary { @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold transition disabled:opacity-50 bg-brand text-card hover:opacity-90; }
+.btn-accent { @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold transition disabled:opacity-50 bg-accent text-accent-ink hover:opacity-90; }
 .btn-ghost { @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold transition disabled:opacity-50 border border-line hover:bg-brand-soft; }
 .input {
   @apply w-full rounded-xl border border-line bg-card px-4 py-2.5 outline-none focus:border-brand;
@@ -52,3 +74,22 @@ h1, h2, h3 {
 .label { @apply mb-1 block text-sm font-medium; }
 .card { @apply rounded-2xl border border-line bg-card p-5 shadow-sm; }
 .chip { @apply inline-flex items-center gap-1 rounded-full bg-brand-soft px-3 py-1 text-xs font-medium; }
+.notice { @apply flex flex-wrap items-center justify-between gap-3 rounded-2xl px-4 py-3 text-sm bg-accent/20; }
+.recap th { @apply w-36 border-t border-line py-2 pr-3 text-left align-top font-semibold text-muted; }
+.recap td { @apply border-t border-line py-2; }
+[aria-invalid="true"] { border-color: var(--no) !important; }
+
+/* Homepage hero: a curved blue shape across the top with a swipe-card drawing */
+html, body { overflow-x: clip; }
+.hero2 { position: relative; isolation: isolate; color: #fff; }
+.hero2 .blob { position: absolute; z-index: -1; top: 0; left: 50%; width: 100vw; height: 100%; transform: translateX(-50%); fill: var(--hero); }
+.hero2 .blob-m { display: none; }
+@media (max-width: 820px) { .hero2 .blob { display: none; } .hero2 .blob-m { display: block; } }
+.hero-art { position: relative; height: 400px; }
+.hero-art .hc { position: absolute; left: 50%; top: 50%; width: 270px; padding: 20px; border-radius: 22px; background: var(--card); color: var(--foreground); box-shadow: 0 30px 60px -30px rgba(0,0,0,.6); }
+.hero-art .b1 { transform: translate(-50%, -50%) rotate(-9deg) translate(-36px, 14px); opacity: .55; }
+.hero-art .b2 { transform: translate(-50%, -50%) rotate(6deg) translate(30px, 8px); opacity: .8; }
+.hero-art .top { transform: translate(-50%, -50%) rotate(-2deg); animation: bob 5s ease-in-out infinite; }
+@keyframes bob { 50% { transform: translate(-50%, -54%) rotate(-1deg); } }
+@media (prefers-reduced-motion: reduce) { .hero-art .top { animation: none; } }
+@media (max-width: 820px) { .hero-art { height: 330px; } .hero-art .hc { width: 240px; } }

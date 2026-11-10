@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Archivo, Source_Sans_3 } from "next/font/google";
-import { TopBar } from "@/components/TopBar";
+import { Footer, TopBar } from "@/components/TopBar";
 import "./globals.css";
 
 const body = Source_Sans_3({ variable: "--font-body", subsets: ["latin"] });
@@ -17,6 +17,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       <body className={`${body.variable} ${display.variable} min-h-screen antialiased`}>
         <TopBar />
         <main className="mx-auto max-w-5xl px-4 py-8">{children}</main>
+        <Footer />
       </body>
     </html>
   );

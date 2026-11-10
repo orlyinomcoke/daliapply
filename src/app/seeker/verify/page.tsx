@@ -60,7 +60,7 @@ export default async function Verify() {
               <span className="label">Clear photo of the front of your ID</span>
               <input type="file" name="id_photo" accept="image/*,application/pdf" required className="text-sm" />
             </label>
-            <p className="text-xs text-muted">Your ID is stored privately and only seen by our review team. It is never shown to companies.</p>
+            <p className="text-xs text-muted">Only our review team sees your ID, and we delete the photo as soon as it is reviewed. Companies only see whether you are Verified.</p>
             <SubmitButton pending="Uploading…">Submit for review</SubmitButton>
           </form>
         )}
