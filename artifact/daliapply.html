@@ -1061,7 +1061,7 @@ function paymentView(box, c, jobId, j) {
       ${j.payStatus === "rejected" ? `<div class="notice small"><span>We couldn't confirm your last payment${last && last[1].note ? `: ${h(last[1].note)}` : "."} Please check and send again.</span></div>` : ""}
       <p class="muted small">Scan this code with GCash or any banking app that supports InstaPay. The amount is already filled in.</p>
       <img src="${GCASH_QR}" alt="GCash QR code for Daliapply, ${PRICE}" class="qrimg">
-      <a class="btn ghost small" href="${GCASH_QR}" download="daliapply-gcash-qr.jpg">Save QR code</a>
+      <p class="small muted">On your phone? Take a screenshot and open it from your GCash app with "Upload QR".</p>
     </div>
     <form class="panel stack" id="payf">
       <h3>2. Send your receipt to our sales team</h3>
