@@ -65,7 +65,7 @@ header.top .wrap { display: flex; align-items: center; justify-content: space-be
 @media (max-width: 480px) { .toplinks { gap: 2px; justify-content: flex-end; } .toplinks a, .toplinks button.out { padding: 5px 8px; font-size: 13px; } .logo { font-size: 19px; } .wide { display: none; } .narrow { display: inline; } .toplinks .who { display: none; } }
 main { padding-block: 28px 64px; }
 
-.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: 0; border-radius: 999px; padding: 10px 18px; font-weight: 700; cursor: pointer; background: var(--primary); color: var(--primary-ink); }
+.btn { text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: 0; border-radius: 999px; padding: 10px 18px; font-weight: 700; cursor: pointer; background: var(--primary); color: var(--primary-ink); }
 .btn:disabled { opacity: .5; cursor: default; }
 .btn.ghost { background: transparent; color: var(--ink); border: 1.5px solid var(--line); }
 .btn.ghost:hover { background: var(--soft); }
@@ -108,6 +108,25 @@ textarea.in { resize: vertical; }
 .bigsearch { width: min(680px, 100%); }
 .bigsearch input { width: 100%; padding: 20px 22px; font-size: 18px; border-radius: 20px; border: 2px solid var(--line); background: var(--surface); box-shadow: 0 8px 30px -18px rgba(20,25,60,.35); }
 .bigsearch input:focus { outline: none; border-color: var(--primary); }
+.authgrid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 440px); gap: 48px; align-items: start; max-width: 980px; margin: 0 auto; }
+.pitch h2 { font-size: 34px; margin-bottom: 8px; }
+.pitch > p { margin: 0 0 22px; }
+.perks { list-style: none; margin: 0; padding: 0; display: grid; gap: 18px; }
+.perks li { display: grid; grid-template-columns: 34px 1fr; gap: 12px; align-items: start; }
+.perks .num { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; background: var(--accent); color: var(--accent-ink); font-family: var(--display); font-weight: 800; font-size: 15px; }
+.perks b { display: block; font-family: var(--display); font-size: 17px; }
+.perks span.muted { font-size: 15px; }
+@media (max-width: 820px) { .authgrid { grid-template-columns: 1fr; gap: 28px; } .authgrid .pitch { order: 2; } .pitch h2 { font-size: 26px; } }
+.why-sec { margin-top: 56px; }
+.why-sec > h2 { font-size: 32px; text-align: center; margin-bottom: 6px; }
+.why-sec > p { text-align: center; margin: 0 auto 28px; max-width: 560px; }
+.why-grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+.why-grid > div { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px; }
+.why-grid .q { font-family: var(--display); font-weight: 700; font-size: 18px; line-height: 1.25; display: block; margin-bottom: 6px; }
+.steps { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); counter-reset: st; }
+.steps div { padding: 16px 0 0; border-top: 3px solid var(--ink); }
+.steps div::before { counter-increment: st; content: "Step " counter(st); display: block; font-size: 13px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 4px; }
+.steps b { font-family: var(--display); font-size: 18px; display: block; margin-bottom: 4px; }
 .promises { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); margin-top: 30px; }
 .promises div { padding: 16px; border-top: 3px solid var(--ink); }
 .promises b { font-family: var(--display); font-size: 17px; display: block; margin-bottom: 4px; }
@@ -585,6 +604,60 @@ function startTyper(input) {
   };
   tick();
 }
+const PERKS = {
+  seeker: {
+    title: "Job hunting without the busywork.",
+    lede: "Daliapply works like a dating app for jobs. Here's what you don't get anywhere else.",
+    items: [
+      ["Upload once, never fill a form again", "We read your skills and years per skill from your resume. A right swipe is your application."],
+      ["No more ghosting", "You only chat with companies that already said yes to you."],
+      ["Salary before you swipe", "Every job tells you if its pay fits your range, so you never apply blind."],
+      ["See why you matched", "Each job shows how your experience fits, like \"PHP 6 yrs ✓\"."],
+      ["Job hunt in private", "Your name and photo stay hidden until you match, so your current boss won't stumble on you."],
+      ["Hide companies you don't like", "One tap and their jobs disappear for 30 days."],
+    ],
+  },
+  company: {
+    title: "Hire people who actually want the job.",
+    lede: "Skip the pile of 300 applications. Daliapply sends you candidates who fit and are interested.",
+    items: [
+      ["Only candidates who fit", "Salary, location and languages are checked for you. The rest are ranked by years in each skill."],
+      ["Every match wants the job", "A match means they swiped right on your job too."],
+      ["Search the way you talk", "Type \"PHP 5 years, management 2 years\" and get a ranked list."],
+      ["Skills first, bias out", "No name, photo, age or gender until it's a match, so you judge the experience."],
+      ["Real people", "Seekers confirm their email, and a Verified badge shows who has passed an ID check."],
+      ["$40 per job post", "No subscription and no seat fees. Pay only when you post."],
+    ],
+  },
+};
+function perksList(side) {
+  return `<ul class="perks">${PERKS[side].items.map(([t, d], i) => `<li><span class="num">${i + 1}</span><div><b>${h(t)}</b><span class="muted">${h(d)}</span></div></li>`).join("")}</ul>`;
+}
+function authWrap(side, form) {
+  return `<div class="authgrid"><aside class="pitch"><h2>${h(PERKS[side].title)}</h2><p class="muted">${h(PERKS[side].lede)}</p>${perksList(side)}</aside><div>${form}</div></div>`;
+}
+const HOME_HOOKS = {
+  seeker: [
+    ["Tired of filling out the same form 50 times?", "Upload your resume once. A right swipe is your whole application."],
+    ["Applied to 100 jobs and heard back from none?", "You only talk to companies that already said yes to you."],
+    ["Is that job even in your salary range?", "Every card tells you before you swipe."],
+    ["Sick of seeing the same company every day?", "Hide them for 30 days with one tap."],
+    ["Worried your boss will see you're looking?", "Your name stays hidden until you match."],
+    ["Wondering why a job was picked for you?", "Every card shows how your skills fit, like \"PHP 6 yrs ✓\"."],
+  ],
+  company: [
+    ["Drowning in applications that don't fit?", "You only see candidates who match your salary, skills and languages, best first."],
+    ["Interviewed someone who never wanted the job?", "Every match swiped right on your job too."],
+    ["Paying monthly for job boards you barely use?", "It's $40 per job post. No subscription."],
+    ["Want to judge skills, not names?", "Candidates stay anonymous until you match."],
+    ["Tired of fake profiles?", "Seekers confirm their email, and a Verified badge shows who passed an ID check."],
+    ["Hate writing search filters?", "Type \"PHP 5 years, management 2 years\" and we rank people for you."],
+  ],
+};
+const HOME_STEPS = {
+  seeker: [["Upload your resume", "We read your skills, years, salary and languages."], ["Swipe on jobs", "Right if you're interested, left if not."], ["Match and chat", "When the company says yes too, names unlock and you can talk."]],
+  company: [["Post a job", "Add the skills and years you need. $40 per post."], ["Swipe on candidates", "Ranked by fit, with names hidden."], ["Match and chat", "When they say yes too, you see their full resume and can talk."]],
+};
 function viewHome(app) {
   const q = UI.preview?.q || "";
   app.innerHTML = `
@@ -603,6 +676,17 @@ function viewHome(app) {
     <div><b>Apply once</b><span class="muted">A right swipe sends the profile we read from your resume. Never fill a form again.</span></div>
     <div><b>Fair first look</b><span class="muted">No photo, age, gender or full name until it's a match. Companies judge skills first.</span></div>
     <div><b>Real people only</b><span class="muted">Seekers confirm their email and a government ID. Companies sign up with a verified work domain.</span></div>
+  </section>
+  <section class="why-sec">
+    <h2>${UI.side === "seeker" ? "Why job seekers use Daliapply" : "Why companies hire on Daliapply"}</h2>
+    <p class="muted">${UI.side === "seeker" ? "Sound familiar?" : "Hiring shouldn't feel like this."}</p>
+    <div class="why-grid">${HOME_HOOKS[UI.side].map(([q, a]) => `<div><span class="q">${h(q)}</span><span class="muted">${h(a)}</span></div>`).join("")}</div>
+  </section>
+  <section class="why-sec">
+    <h2>How it works</h2>
+    <p class="muted">Three steps, no cover letters.</p>
+    <div class="steps">${HOME_STEPS[UI.side].map(([t, d]) => `<div><b>${h(t)}</b><span class="muted">${h(d)}</span></div>`).join("")}</div>
+    <p style="text-align:center;margin-top:28px"><a class="btn" href="#${UI.side}">${UI.side === "seeker" ? "Find jobs" : "Post a job"}</a></p>
   </section>`;
   const input = $("#hero-q"); startTyper(input);
   for (const s of ["seeker", "company"]) $("#t-" + s).onclick = () => { UI.side = s; UI.preview = null; render(); };
@@ -648,7 +732,7 @@ function signupBox(app, side) {
   const isLogin = st.mode === "login";
   const title = isLogin ? (side === "seeker" ? "Job seeker log in" : "Company log in") : (side === "seeker" ? "Create your seeker account" : "Set up your company");
   if (st.step === "email") {
-    app.innerHTML = `<form class="panel stack" id="su" style="max-width:440px;margin:0 auto">
+    app.innerHTML = authWrap(side, `<form class="panel stack" id="su">
       <div class="authtabs" role="group" aria-label="Log in or sign up"><button type="button" id="m-login" aria-pressed="${isLogin}">Log in</button><button type="button" id="m-signup" aria-pressed="${!isLogin}">Sign up</button></div>
       <h2>${title}</h2>
       <p class="muted small">${side === "company" ? "Use your work email. We check the domain before you can post or search." : "We'll email you a one-time code. No password."}</p>
@@ -656,7 +740,7 @@ function signupBox(app, side) {
       <label class="f">Email<input class="in" id="su-email" type="email" required></label>
       <p class="err" id="su-err" hidden></p>
       <button class="btn">Send code</button>
-      <p class="small muted">${side === "seeker" ? 'Hiring? <a href="#company">Company login</a>' : 'Looking for work? <a href="#seeker">Job seeker login</a>'}</p></form>`;
+      <p class="small muted">${side === "seeker" ? 'Hiring? <a href="#company">Company login</a>' : 'Looking for work? <a href="#seeker">Job seeker login</a>'}</p></form>`);
     $("#m-login").onclick = () => { st.mode = "login"; render(); };
     $("#m-signup").onclick = () => { st.mode = "signup"; render(); };
     $("#su").onsubmit = (e) => {
@@ -670,13 +754,13 @@ function signupBox(app, side) {
       render();
     };
   } else {
-    app.innerHTML = `<form class="panel stack" id="su2" style="max-width:440px;margin:0 auto">
+    app.innerHTML = authWrap(side, `<form class="panel stack" id="su2">
       <h2>Check your email</h2>
       <p class="muted small">We sent a 6-digit code to <b>${h(st.email)}</b>.</p>
       <div class="notice gold small"><span>Demo: emails aren't sent in this preview. Your code is <b>${st.code}</b>.</span></div>
       <label class="f">Code<input class="in" id="su-code" inputmode="numeric" maxlength="6" required style="letter-spacing:.3em;font-size:20px"></label>
       <p class="err" id="su-err" hidden></p>
-      <div class="row"><button class="btn">Verify</button><button type="button" class="btn ghost" id="su-back">Use a different email</button></div></form>`;
+      <div class="row"><button class="btn">Verify</button><button type="button" class="btn ghost" id="su-back">Use a different email</button></div></form>`);
     $("#su-back").onclick = () => { st.step = "email"; render(); };
     $("#su2").onsubmit = async (e) => {
       e.preventDefault();
