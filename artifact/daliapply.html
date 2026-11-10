@@ -150,6 +150,14 @@ body { margin: 0; }
 .bigsearch { width: min(680px, 100%); }
 .bigsearch input { width: 100%; padding: 20px 22px; font-size: 18px; border-radius: 20px; border: 2px solid var(--line); background: var(--surface); box-shadow: 0 8px 30px -18px rgba(20,25,60,.35); }
 .bigsearch input:focus { outline: none; border-color: var(--primary); }
+.stepper { list-style: none; margin: 0; padding: 0; display: flex; gap: 6px; flex-wrap: wrap; font-size: 13px; font-weight: 700; }
+.stepper li { padding: 4px 12px; border-radius: 999px; background: var(--soft); color: var(--muted); }
+.stepper li[aria-current="step"] { background: var(--primary); color: var(--primary-ink); }
+.recap { width: 100%; border-collapse: collapse; font-size: 15px; }
+.recap th { text-align: left; vertical-align: top; color: var(--muted); font-weight: 600; width: 150px; padding: 8px 12px 8px 0; border-top: 1px solid var(--line); }
+.recap td { padding: 8px 0; border-top: 1px solid var(--line); }
+.in[aria-invalid="true"] { border-color: var(--no); }
+@media (max-width: 560px) { .recap th { width: 105px; } }
 .paygrid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr); gap: 16px; align-items: start; }
 .qrimg { width: 100%; max-width: 300px; border-radius: 14px; align-self: center; }
 .mailbox { border: 1px solid var(--line); border-radius: 14px; padding: 12px; display: grid; gap: 8px; background: var(--bg); }
@@ -983,27 +991,145 @@ function viewCompany(app) {
     <div class="list">${jobs.map(([id, j]) => `<button class="item" data-job="${h(id)}"><div><b>${h(j.title)}</b>
       <p class="small muted">${jobStatus(j)}</p></div><span aria-hidden="true">→</span></button>`).join("")
       || `<div class="panel" style="text-align:center"><p class="muted">No jobs yet. Post one to start seeing candidates.</p></div>`}</div></div>`;
-  $("#new-job").onclick = () => { UI.companyTab = "new"; render(); };
+  $("#new-job").onclick = () => { UI.companyTab = "new"; UI.editJob = null; UI.jobDraft = null; render(); };
   app.querySelectorAll("[data-job]").forEach((b) => (b.onclick = () => { UI.openJob = b.dataset.job; UI.filters = { q: "", role: null, skills: [] }; render(); }));
 }
+const JOB_COUNTRIES = ["PH","SG","HK","JP","KR","TW","MY","ID","TH","VN","IN","AE","SA","QA","KW","BH","OM","AU","NZ","US","CA","GB","IE","DE","NL","FR","ES","IT"];
+const countryName = (() => { let dn = null; try { dn = new Intl.DisplayNames(["en"], { type: "region" }); } catch {} return (c) => (dn ? dn.of(c) : c) || c; })();
+const KNOWN_SKILLS = new Set(Object.keys(SKILLS).map((k) => k.toLowerCase()));
+function parseSkillLines(text) {
+  const out = [], bad = [];
+  text.split("\n").map((l) => l.trim()).filter(Boolean).forEach((l) => {
+    const m = l.match(/^(.+?)[\s:,-]+(\d+(?:\.\d+)?)\s*\+?\s*(?:yrs?|years?)?$/i);
+    if (m && m[1].trim()) out.push({ label: m[1].trim(), min: +m[2] }); else bad.push(l);
+  });
+  return { skills: out, bad };
+}
+// Skills and years the description mentions, sentence by sentence ("5+ years of PHP").
+function descSkills(desc) {
+  const found = {};
+  desc.split(/[\n.;•,]+|\band\b/i).forEach((part) => {
+    if (!part.trim()) return;
+    parseSearch(part).skills.forEach((k) => { if (!found[k.label] || k.min > found[k.label]) found[k.label] = k.min; });
+  });
+  return Object.entries(found).map(([label, min]) => ({ label, min }));
+}
+function editDistance(a, b) {
+  const m = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)]);
+  for (let j = 1; j <= b.length; j++) m[0][j] = j;
+  for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++) m[i][j] = Math.min(m[i - 1][j] + 1, m[i][j - 1] + 1, m[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+  return m[a.length][b.length];
+}
+function closestSkill(label) {
+  const l = label.toLowerCase(); let best = null;
+  for (const k of Object.keys(SKILLS)) { const d = editDistance(l, k.toLowerCase()); if (d <= Math.max(1, Math.floor(k.length / 4)) && (!best || d < best.d)) best = { k, d }; }
+  return best ? best.k : null;
+}
+function jobChecks(d) {
+  const out = []; const req = Object.fromEntries(d.skills.map((k) => [k.label.toLowerCase(), k]));
+  for (const k of descSkills(d.description)) {
+    const r = req[k.label.toLowerCase()];
+    if (r && k.min && r.min !== k.min) out.push({ kind: "years", text: `Your description says ${k.label} ${k.min} years, but required skills say ${r.min}. Which is right?`, fix: { label: r.label, min: k.min }, fixText: `Use ${k.min} years` });
+    else if (!r) out.push({ kind: "missing", text: `Your description mentions ${k.label}, but it isn't in your required skills, so we won't match on it.`, fix: { label: k.label, min: k.min || 1, add: true }, fixText: `Add ${k.label}${k.min ? ` (${k.min} yrs)` : ""}` });
+  }
+  d.skills.forEach((k) => {
+    if (!KNOWN_SKILLS.has(k.label.toLowerCase())) {
+      const near = closestSkill(k.label);
+      out.push(near ? { kind: "unknown", text: `We don't recognise "${k.label}". Did you mean ${near}?`, fix: { label: k.label, min: k.min, rename: near }, fixText: `Change to ${near}` }
+        : { kind: "unknown", text: `We don't recognise "${k.label}". Check the spelling, or seekers' resumes may not match it.` });
+    }
+    if (k.min > 20) out.push({ kind: "years", text: `${k.label} ${k.min} years is a lot. Very few people will match. Is that a typo?` });
+  });
+  if (d.salaryMin < 10000) out.push({ kind: "salary", text: `${php(d.salaryMin)} a month is unusually low. Is it a typo (for example, a missing zero)?` });
+  if (d.salaryMax > 1000000) out.push({ kind: "salary", text: `${php(d.salaryMax)} a month is unusually high. Is it a typo?` });
+  if (d.salaryMax > d.salaryMin * 3) out.push({ kind: "salary", text: `The top of your salary range is more than 3 times the bottom. Seekers trust a tighter range more.` });
+  return out;
+}
+function jobRecap(d) {
+  const row = (k, v) => `<tr><th scope="row">${k}</th><td>${v}</td></tr>`;
+  return `<table class="recap">
+    ${row("Job title", h(d.title))}
+    ${row("Location", `${h(countryName(d.country))}${d.remote ? " · Remote" : ""}${d.relocation ? " · Relocation offered" : ""}`)}
+    ${row("Monthly salary", `${php(d.salaryMin)} to ${php(d.salaryMax)}`)}
+    ${row("Required skills", d.skills.map((k) => `<span class="chip">${h(k.label)} ${k.min}+ yrs</span>`).join(" "))}
+    ${row("Languages", h((d.languages || []).join(", ") || "Any"))}
+    ${row("Description", `<span style="white-space:pre-wrap">${h(d.description)}</span>`)}
+  </table>`;
+}
+function draftFromJob(j) {
+  return { title: j.title, description: j.description || "", skillsText: (j.skills || []).map((k) => `${k.label}: ${k.min}`).join("\n"), salaryMin: j.salaryMin || "", salaryMax: j.salaryMax || "",
+    country: j.country || "PH", langs: (j.languages || []).join(", "), remote: !!j.remote, relocation: !!j.relocation };
+}
 function companyNewJob(app, c) {
-  app.innerHTML = `<form class="panel stack" id="jf" style="max-width:720px;margin:0 auto">
-    <div class="row" style="justify-content:space-between"><h2>Post a job</h2><button type="button" class="btn ghost small" id="jf-cancel">Cancel</button></div>
-    <p class="small muted">${PRICE} per post, paid by GCash or InstaPay.</p>
-    <label class="f">Job title<input class="in" id="j-title" required placeholder="Senior PHP Developer"></label>
-    <label class="f">Description and key requirements<textarea class="in" id="j-desc" rows="4"></textarea></label>
-    <label class="f">Required skills and minimum years, one per line<textarea class="in" id="j-skills" rows="3" style="font-family:ui-monospace,monospace;font-size:13px" placeholder="PHP: 5&#10;Management: 2"></textarea></label>
-    <div class="grid2"><label class="f">Monthly salary from (PHP)<input class="in" id="j-min" type="number"></label><label class="f">to (PHP)<input class="in" id="j-max" type="number"></label>
-      <label class="f">Country (2 letters)<input class="in" id="j-country" value="PH"></label><label class="f">Required languages (comma separated)<input class="in" id="j-langs" placeholder="english"></label></div>
-    <div class="row small"><label class="row"><input type="checkbox" id="j-remote"> Remote</label><label class="row"><input type="checkbox" id="j-reloc"> Relocation offered</label></div>
-    <button class="btn">Continue to payment</button></form>`;
-  $("#jf-cancel").onclick = () => { UI.companyTab = "jobs"; render(); };
-  $("#jf").onsubmit = async (e) => {
-    e.preventDefault(); const v = (k) => $("#j-" + k).value.trim(); const id = newId();
-    const skills = v("skills").split("\n").map((l) => l.trim()).filter(Boolean).map((l) => { const m = l.match(/^(.+?)[\s:,-]+(\d+(?:\.\d+)?)\s*(?:yrs?|years?)?$/i); return { label: (m ? m[1] : l).trim(), min: m ? +m[2] : 0 }; });
-    await put("jobs", id, { companyId: S.me, companyName: c.name, title: v("title"), description: v("desc"), skills, salaryMin: +v("min") || null, salaryMax: +v("max") || null,
-      country: v("country").toUpperCase(), languages: v("langs").split(",").map((x) => x.trim().toLowerCase()).filter(Boolean), remote: $("#j-remote").checked, relocation: $("#j-reloc").checked, paid: false, createdAt: now() });
-    UI.companyTab = "jobs"; UI.openJob = id; render();
+  const editing = UI.editJob && D.jobs[UI.editJob] ? UI.editJob : null;
+  const d = UI.jobDraft || (UI.jobDraft = editing ? draftFromJob(D.jobs[editing]) : { title: "", description: "", skillsText: "", salaryMin: "", salaryMax: "", country: "PH", langs: "", remote: false, relocation: false, step: "form" });
+  const cancel = () => { UI.jobDraft = null; UI.editJob = null; if (!editing) UI.companyTab = "jobs"; else { UI.companyTab = "jobs"; UI.openJob = editing; } render(); };
+  const steps = `<ol class="stepper"><li aria-current="${d.step !== "review" ? "step" : "false"}">1. Job details</li><li aria-current="${d.step === "review" ? "step" : "false"}">2. Check</li><li>3. Payment</li></ol>`;
+  if (d.step === "review") return jobReview(app, c, d, editing, steps, cancel);
+  app.innerHTML = `<form class="panel stack" id="jf" style="max-width:720px;margin:0 auto" novalidate>
+    ${steps}
+    <div class="row" style="justify-content:space-between"><h2>${editing ? "Edit job post" : "Post a job"}</h2><button type="button" class="btn ghost small" id="jf-cancel">Cancel</button></div>
+    <p class="small muted">${PRICE} per post, paid by GCash or InstaPay. Fields marked * are required.</p>
+    <label class="f">Job title *<input class="in" id="j-title" required value="${h(d.title)}" placeholder="Senior PHP Developer"></label>
+    <label class="f">Description and key requirements *<textarea class="in" id="j-desc" rows="5" required placeholder="What the person will do, and what they need. For example: Lead a team of 4. 5+ years of PHP and 2 years managing people.">${h(d.description)}</textarea></label>
+    <label class="f">Required skills and minimum years, one per line *<textarea class="in" id="j-skills" rows="3" required style="font-family:ui-monospace,monospace;font-size:13px" placeholder="PHP: 5&#10;Management: 2">${h(d.skillsText)}</textarea></label>
+    <div class="grid2"><label class="f">Monthly salary from (PHP) *<input class="in" id="j-min" type="number" min="1" required value="${h(String(d.salaryMin))}"></label><label class="f">to (PHP) *<input class="in" id="j-max" type="number" min="1" required value="${h(String(d.salaryMax))}"></label>
+      <label class="f">Country *<select class="in" id="j-country" required>${JOB_COUNTRIES.map((cc) => `<option value="${cc}" ${cc === d.country ? "selected" : ""}>${h(countryName(cc))}</option>`).join("")}</select></label>
+      <label class="f">Required languages (optional, comma separated)<input class="in" id="j-langs" value="${h(d.langs)}" placeholder="english"></label></div>
+    <div class="row small"><label class="row"><input type="checkbox" id="j-remote" ${d.remote ? "checked" : ""}> Remote</label><label class="row"><input type="checkbox" id="j-reloc" ${d.relocation ? "checked" : ""}> Relocation offered</label></div>
+    <div class="err" id="jf-err" hidden></div>
+    <button class="btn">Next: check your post</button></form>`;
+  $("#jf-cancel").onclick = cancel;
+  $("#jf").onsubmit = (e) => {
+    e.preventDefault(); const v = (k) => $("#j-" + k).value.trim();
+    Object.assign(d, { title: v("title"), description: v("desc"), skillsText: $("#j-skills").value, salaryMin: v("min"), salaryMax: v("max"), country: v("country"), langs: v("langs"), remote: $("#j-remote").checked, relocation: $("#j-reloc").checked });
+    const errs = []; const { skills, bad } = parseSkillLines(d.skillsText);
+    if (!d.title) errs.push(["title", "Add a job title."]);
+    if (d.description.length < 40) errs.push(["desc", "Write at least a couple of sentences in the description (40 characters or more)."]);
+    if (!skills.length && !bad.length) errs.push(["skills", "Add at least one required skill with its years, like \"PHP: 5\"."]);
+    if (bad.length) errs.push(["skills", `Add the years to each skill line, like "PHP: 5". Check: ${bad.map((x) => `"${x}"`).join(", ")}.`]);
+    if (!(+d.salaryMin > 0)) errs.push(["min", "Add the lowest monthly salary."]);
+    if (!(+d.salaryMax > 0)) errs.push(["max", "Add the highest monthly salary."]);
+    if (+d.salaryMin > 0 && +d.salaryMax > 0 && +d.salaryMin > +d.salaryMax) errs.push(["min", "The lowest salary is higher than the highest. Swap them?"]);
+    if (!d.country) errs.push(["country", "Pick a country."]);
+    app.querySelectorAll(".in").forEach((x) => x.removeAttribute("aria-invalid"));
+    if (errs.length) {
+      errs.forEach(([k]) => $("#j-" + k).setAttribute("aria-invalid", "true"));
+      const er = $("#jf-err"); er.innerHTML = `<ul style="margin:0;padding-left:18px">${errs.map(([, m]) => `<li>${h(m)}</li>`).join("")}</ul>`; er.hidden = false;
+      $("#j-" + errs[0][0]).focus(); return;
+    }
+    d.skills = skills; d.step = "review"; render(); window.scrollTo(0, 0);
+  };
+}
+function draftToJob(d) {
+  return { title: d.title, description: d.description, skills: d.skills, salaryMin: +d.salaryMin, salaryMax: +d.salaryMax, country: d.country,
+    languages: d.langs.split(",").map((x) => x.trim().toLowerCase()).filter(Boolean), remote: d.remote, relocation: d.relocation };
+}
+function jobReview(app, c, d, editing, steps, cancel) {
+  const job = draftToJob(d); const checks = jobChecks(job);
+  app.innerHTML = `<div class="panel stack" style="max-width:760px;margin:0 auto">
+    ${steps}
+    <h2>Check your job post</h2>
+    <p class="muted small">This is what seekers will match against. Fix anything that's wrong before you pay.</p>
+    ${checks.length ? `<div class="stack">${checks.map((k, i) => `<div class="notice gold small"><span>${h(k.text)}</span>${k.fix ? `<button class="btn small" data-fix="${i}">${h(k.fixText)}</button>` : ""}</div>`).join("")}</div>`
+      : `<div class="notice small" style="background:var(--yes-soft);color:var(--yes)"><span>Everything looks consistent. Your description and required skills agree.</span></div>`}
+    ${jobRecap(job)}
+    <div class="row" style="justify-content:space-between"><button class="btn ghost" id="jr-back">← Back to edit</button><button class="btn" id="jr-ok">${editing ? "Save changes" : "Looks good, continue to payment"}</button></div>
+  </div>`;
+  $("#jr-back").onclick = () => { d.step = "form"; render(); };
+  app.querySelectorAll("[data-fix]").forEach((b) => (b.onclick = () => {
+    const f = checks[+b.dataset.fix].fix;
+    if (f.add) d.skills.push({ label: f.label, min: f.min });
+    else if (f.rename) d.skills = d.skills.map((k) => (k.label === f.label ? { ...k, label: f.rename } : k));
+    else d.skills = d.skills.map((k) => (k.label === f.label ? { ...k, min: f.min } : k));
+    d.skillsText = d.skills.map((k) => `${k.label}: ${k.min}`).join("\n"); render();
+  }));
+  $("#jr-ok").onclick = async (e) => {
+    e.target.disabled = true;
+    if (editing) await patch("jobs", editing, job);
+    else { const id = newId(); await put("jobs", id, { ...job, companyId: S.me, companyName: c.name, paid: false, createdAt: now() }); UI.openJob = id; }
+    if (editing) UI.openJob = editing;
+    UI.jobDraft = null; UI.editJob = null; UI.companyTab = "jobs"; render(); window.scrollTo(0, 0);
   };
 }
 function jobStatus(j) {
@@ -1035,7 +1161,7 @@ Amount: ${PRICE}
 GCash / InstaPay reference no.: ${ref || "(see attached receipt)"}
 
 Job title: ${j.title}
-Location: ${j.remote ? "Remote, " : ""}${j.country || ""}${j.relocation ? " (relocation offered)" : ""}
+Location: ${j.remote ? "Remote, " : ""}${j.country ? countryName(j.country) : ""}${j.relocation ? " (relocation offered)" : ""}
 Salary: ${sal}
 Languages: ${(j.languages || []).join(", ") || "Any"}
 Skills: ${(j.skills || []).map((k) => `${k.label}${k.min ? " " + k.min + "+ yrs" : ""}`).join(", ") || "None listed"}
@@ -1099,8 +1225,16 @@ function companyJob(app, c, jobId) {
   const j = D.jobs[jobId];
   const head = `<div class="row" style="justify-content:space-between"><div><button class="btn ghost small" id="back">← All jobs</button><h2 style="font-size:28px;margin-top:10px">${h(j.title)}</h2></div></div>`;
   if (!j.paid) {
-    app.innerHTML = `<div class="stack">${head}<div id="payv"></div></div>`;
+    const canEdit = j.payStatus !== "submitted";
+    app.innerHTML = `<div class="stack">${head}
+      ${canEdit ? `<ol class="stepper"><li>1. Job details</li><li>2. Check</li><li aria-current="step">3. Payment</li></ol>` : ""}
+      <details class="panel" ${canEdit ? "open" : ""}><summary><b>Your job post</b> <span class="small muted">(what you'll pay for)</span></summary>
+        <div style="margin-top:12px">${jobRecap(j)}</div>
+        ${canEdit ? `<button class="btn ghost small" id="edit-job" style="margin-top:10px">← Edit job details</button>` : `<p class="small muted" style="margin-top:8px">Your payment is being checked, so the post is locked. Message sales if something needs to change.</p>`}
+      </details>
+      <div id="payv"></div></div>`;
     $("#back").onclick = () => { UI.openJob = null; render(); };
+    if ($("#edit-job")) $("#edit-job").onclick = () => { UI.editJob = jobId; UI.jobDraft = null; UI.companyTab = "new"; UI.openJob = null; render(); window.scrollTo(0, 0); };
     return paymentView($("#payv"), c, jobId, j);
   }
   const f = UI.filters; const list = candidates(jobId, f);
