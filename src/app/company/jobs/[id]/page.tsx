@@ -58,7 +58,7 @@ export default async function JobPage({ params, searchParams }: { params: Promis
 
       {job.status === "awaiting_payment" && (
         <div className="card space-y-2">
-          <p className="font-semibold">Pay $40 to publish this job</p>
+          <p className="font-semibold">Pay ₱1,998 to publish this job</p>
           <p className="text-sm text-muted">
             Online payment is coming soon. For now, our team confirms your payment and makes the job live. Contact
             us to pay by bank transfer, GCash or Maya.

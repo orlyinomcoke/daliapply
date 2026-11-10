@@ -4,7 +4,7 @@ import { CompanyNav } from "@/components/Nav";
 
 const STATUS: Record<string, string> = {
   draft: "Draft",
-  awaiting_payment: "Awaiting payment ($40)",
+  awaiting_payment: "Awaiting payment (₱1,998)",
   active: "Live",
   closed: "Closed",
 };

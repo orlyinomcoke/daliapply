@@ -70,7 +70,7 @@ export default async function Admin() {
       </section>
 
       <section>
-        <h2 className="mb-4 text-xl font-bold">Jobs awaiting payment ($40)</h2>
+        <h2 className="mb-4 text-xl font-bold">Jobs awaiting payment (₱1,998)</h2>
         <div className="grid gap-3">
           {(jobs ?? []).map((j) => {
             const c = j.companies as unknown as { name: string; domain: string };

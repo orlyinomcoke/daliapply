@@ -14,7 +14,7 @@ create table app_settings (
 
 insert into app_settings (key, value) values
   ('seeker_daily_right_swipes', '25'),
-  ('job_post_price_usd', '40'),
+  ('job_post_price_php', '1998'),
   ('hide_company_days', '30');
 
 create or replace function setting_int(p_key text) returns int
