@@ -254,7 +254,7 @@ pre.resume { white-space: pre-wrap; font-family: var(--body); font-size: 12.5px;
   </div>
 </header>
 <main class="wrap" id="app"><p class="muted">Loading Daliapply…</p></main>
-<footer class="foot"><div class="wrap"><span>© Daliapply</span><nav><a href="#faq">FAQ</a><a href="#support">Support</a></nav></div></footer>
+<footer class="foot"><div class="wrap"><span>© Daliapply</span><nav><a href="#faq">FAQ</a><a href="#support">Support</a><a href="#admin" id="admin-link" hidden>Admin</a></nav></div></footer>
 <div id="overlay"></div>
 
 <script>
@@ -647,6 +647,8 @@ function render(fromData = false) {
     : (S.role === "seeker" ? link("seeker", "Jobs") : link("company", "My jobs")) + link("matches", "Matches") + admin
       + (who ? `<span class="who">${h(who)}</span>` : "") + `<button class="out" id="logout">Log out</button>`;
   if ($("#logout")) $("#logout").onclick = logout;
+  // Admin link: only the artifact's owner ever sees it
+  if ($("#admin-link")) $("#admin-link").hidden = !S.isOwner;
   // keep each side out of the other's pages
   if (S.role === "company" && r === "seeker") return go("company");
   if (S.role === "seeker" && r === "company") return go("seeker");

@@ -8,4 +8,6 @@ createdb "$DB"
 trap 'dropdb "$DB"' EXIT
 psql -q -v ON_ERROR_STOP=1 -d "$DB" -f supabase/tests/supabase_stub.sql
 psql -q -v ON_ERROR_STOP=1 -d "$DB" -f supabase/migrations/0001_init.sql
+psql -q -v ON_ERROR_STOP=1 -d "$DB" -f supabase/migrations/0002_launch.sql
 psql -q -v ON_ERROR_STOP=1 -d "$DB" -f supabase/tests/rules_test.sql
+psql -q -v ON_ERROR_STOP=1 -d "$DB" -f supabase/tests/launch_test.sql
